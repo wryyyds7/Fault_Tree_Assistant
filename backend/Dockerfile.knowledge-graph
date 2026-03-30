@@ -1,0 +1,11 @@
+FROM openjdk:17-jdk-alpine
+
+WORKDIR /app
+
+COPY . /app
+
+RUN ./mvnw clean package -DskipTests -pl knowledge-graph-service -am
+
+EXPOSE 8082
+
+CMD ["java", "-jar", "knowledge-graph-service/target/knowledge-graph-service-1.0.0.jar"]

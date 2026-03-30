@@ -1,0 +1,84 @@
+spring:
+  application:
+    name: gateway-service
+  config:
+    import: optional:nacos:${spring.application.name}.yaml?namespace=fta-namespace&group=DEFAULT_GROUP&extension=yaml
+  cloud:
+    nacos:
+      discovery:
+        server-addr: localhost:8848
+        namespace: fta-namespace
+        group: DEFAULT_GROUP
+    gateway:
+      routes:
+        # 认证服务路由
+        - id: auth-service
+          uri: lb://auth-service
+          predicates:
+            - Path=/api/v1/auth/**
+          filters:
+            - StripPrefix=0
+        
+        # 文档摄入服务路由
+        - id: document-ingest-service
+          uri: lb://document-ingest-service
+          predicates:
+            - Path=/api/v1/documents/**
+          filters:
+            - StripPrefix=0
+        
+        # 知识图谱服务路由
+        - id: knowledge-graph-service
+          uri: lb://knowledge-graph-service
+          predicates:
+            - Path=/api/v1/kg/**
+          filters:
+            - StripPrefix=0
+        
+        # 规则验证服务路由
+        - id: rule-validation-service
+          uri: lb://rule-validation-service
+          predicates:
+            - Path=/api/v1/validation/**
+          filters:
+            - StripPrefix=0
+        
+        # 故障树编辑器服务路由
+        - id: fault-tree-editor-service
+          uri: lb://fault-tree-editor-service
+          predicates:
+            - Path=/api/v1/fault-trees/**
+          filters:
+            - StripPrefix=0
+        
+        # 反馈学习服务路由
+        - id: feedback-learning-service
+          uri: lb://feedback-learning-service
+          predicates:
+            - Path=/api/v1/feedback/**
+          filters:
+            - StripPrefix=0
+
+        # 向量存储服务路由
+        - id: vector-store-service
+          uri: lb://vector-store-service
+          predicates:
+            - Path=/api/v1/vector/**
+          filters:
+            - StripPrefix=0
+
+        # RAG生成服务路由 (Python FastAPI)
+        - id: rag-generation-service
+          uri: http://rag-generation-service:8000
+          predicates:
+            - Path=/api/v1/rag/**
+          filters:
+            - StripPrefix=0
+
+server:
+  port: 8087
+
+# 网关配置
+gateway:
+  timeout: 30000
+  retries: 3

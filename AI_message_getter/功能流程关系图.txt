@@ -1,0 +1,793 @@
+================================================================================
+                    故障树智能生成系统 - 功能流程关系图
+================================================================================
+
+【功能总览】
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                              系统功能模块总览                                     │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐    ┌──────────────┐
+  │   文档上传   │───▶│   文档解析   │───▶│   向量存储   │───▶│  故障树生成 │
+  │  (Document)  │    │  (Ingest)    │    │  (Vector)    │    │    (RAG)    │
+  └──────────────┘    └──────────────┘    └──────────────┘    └──────────────┘
+         │                                                           │
+         │                                                           ▼
+         │                                                  ┌──────────────┐
+         │                                                  │   规则校验   │
+         │                                                  │ (Validation) │
+         │                                                  └──────────────┘
+         │                                                           │
+         ▼                                                           ▼
+  ┌──────────────┐                                           ┌──────────────┐
+  │   知识图谱   │◀──────────────────────────────────────────│   故障树编辑 │
+  │ (Knowledge)  │                                           │   (Editor)   │
+  └──────────────┘                                           └──────────────┘
+         ▲                                                           │
+         │                                                           ▼
+         │                                                  ┌──────────────┐
+         │                                                  │   反馈学习   │
+         │                                                  │  (Feedback)  │
+         │                                                  └──────────────┘
+         │                                                           │
+         └───────────────────────────────────────────────────────────┘
+                                                           ▼
+                                                  ┌──────────────┐
+                                                  │   评估服务   │
+                                                  │ (Evaluation) │
+                                                  └──────────────┘
+
+
+================================================================================
+模块一：文档上传与解析
+================================================================================
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                              文档上传与解析                                       │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+  前端上传文件
+       │
+       │ POST /api/v1/documents/upload (MultipartFile, sourceType, equipmentType)
+       ▼
+┌──────────────────────────────────────┐
+│  DocumentController.uploadDocument()  │
+│  [DocumentController.java:L28-L34]     │
+└──────────────────────────────────────┘
+       │
+       │ 1. 生成 docId (doc_xxxxxxxx)
+       │ 2. 保存文件到磁盘 {document.storage.path}
+       │    ⚠️ 配置参数: document.storage.path
+       │    📁 文件: application.yml#L25
+       │ 3. 发送 RabbitMQ 消息 → document-parse-queue
+       ▼
+┌──────────────────────────────────────┐
+│  DocumentServiceImpl.processDocument  │
+│  (异步监听消息队列)                   │
+│  [DocumentServiceImpl.java:L36-L83]   │
+└──────────────────────────────────────┘
+       │
+       │ 4. 读取文件
+       │ 5. 解析内容（PDF/DOCX/TXT 按行分割）
+       │ 6. 构建段落列表（带 sourceType, credibilityWeight）
+       │ 7. 调用 VectorStoreClient.processDocument()
+       ▼
+┌──────────────────────────────────────┐
+│  VectorStoreService.processDocument   │
+│  [VectorStoreServiceImpl.java:L158+]  │
+│                                      │
+│  • 创建 DocumentMetadata (带来源类型)  │
+│  • 创建 ParagraphMetadata (按行)      │
+│  • 生成向量存入 VectorStore           │
+│  • 发送消息 → knowledge-graph-service │
+└──────────────────────────────────────┘
+       │
+       │ 8. 知识图谱更新（可选）
+       ▼
+┌──────────────────────────────────────┐
+│  KnowledgeGraphService.enrichKnowledge│
+└──────────────────────────────────────┘
+
+
+【关联接口】
+
+  POST   /api/v1/documents/upload              上传文档
+  GET    /api/v1/documents/{docId}/content     获取文档内容
+  GET    /api/v1/documents/{docId}/paragraphs  获取文档段落列表
+
+
+【模块一 YAML 配置参数】📌 Nacos 动态配置
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│  document-ingest-service / application.yml                                       │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+  # 文档存储配置
+  document:
+    storage:
+      path: ./data/documents          # ⚠️ 文档存储路径 [L25]
+    ocr:
+      tessdata: ./tessdata            # ⚠️ OCR 引擎数据路径 [L27]
+
+  # Spring 文件上传限制
+  spring:
+    servlet:
+      multipart:
+        max-file-size: 100MB          # ⚠️ 单文件最大大小 [L18]
+        max-request-size: 100MB       # ⚠️ 请求最大大小 [L19]
+
+  # RabbitMQ 连接配置
+  spring:
+    rabbitmq:
+      host: localhost                  # ⚠️ RabbitMQ 主机 [L10]
+      port: 5672                       # ⚠️ RabbitMQ 端口 [L11]
+      username: guest                  # ⚠️ RabbitMQ 用户名 [L12]
+      password: guest                 # ⚠️ RabbitMQ 密码 [L13]
+
+
+================================================================================
+模块二：故障树生成（RAG）
+================================================================================
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                              故障树生成（RAG）                                   │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+  前端：输入顶事件 + 选择文档
+       │
+       │ POST /api/v1/rag/generate
+       │ {topEvent: "驱动系统故障", docIds: ["doc_xxx"], template: {...}}
+       ▼
+┌──────────────────────────────────────┐
+│  RAG API: generate_fault_tree()      │
+│  (background_tasks 异步处理)          │
+│  [rag_api.py:L157+]                  │
+└──────────────────────────────────────┘
+       │
+       │ _get_document_content_from_service(doc_ids)
+       │ 调用 document-ingest-service 获取带元数据的文档内容
+       ▼
+┌──────────────────────────────────────┐
+│  _get_document_content_from_service() │
+│  [rag_api.py:L60-L130]               │
+│                                      │
+│  • GET /api/v1/documents/{docId}/content   │
+│  • GET /api/v1/documents/{docId}/paragraphs│
+│  • 组装段落列表（含 sourceType, credibilityWeight）│
+└──────────────────────────────────────┘
+       │
+       │ _fuse_documents(paragraphs)
+       │ 调用 FusionEngine 进行多文档融合
+       ▼
+┌──────────────────────────────────────┐
+│  FusionEngine.fuse()                 │
+│  [fusion_engine.py:L42-L90]          │
+│                                      │
+│  • 段落聚类（相似度 > 0.7）            │
+│     ⚠️ 配置参数: similarity_threshold
+│     📁 文件: rag_api.py#L25 或 .env#L16
+│  • 冲突检测（矛盾型/缺失型/差异型）   │
+│  • 冲突消解（基于可信度权重）         │
+│  • 返回融合后的段落 + 统计信息        │
+└──────────────────────────────────────┘
+       │
+       │ 获取与顶事件相关的段落
+       ▼
+┌──────────────────────────────────────┐
+│  load_fault_tree_prompt()            │
+│  [prompts.py]                        │
+│                                      │
+│  • 组装提示词模板                      │
+│  • 拼接融合后的相关段落               │
+│  • 添加模板、知识图谱信息             │
+└──────────────────────────────────────┘
+       │
+       │ prompt
+       ▼
+┌──────────────────────────────────────┐
+│  LLMClient.generate(prompt)           │
+│  [llm_client.py]                     │
+│                                      │
+│  • 调用通义千问（Qwen-Max）           │
+│     ⚠️ 配置参数: BAILIAN_API_KEY
+│     ⚠️ 配置参数: BAILIAN_API_URL
+│     📁 文件: .env#L6-.env#L7
+└──────────────────────────────────────┘
+       │
+       │ LLM 输出
+       ▼
+┌──────────────────────────────────────┐
+│  FaultTreeGenerator.generate()        │
+│  [fault_tree_generator.py]            │
+│  • 解析 LLM 输出 JSON                │
+│  • 转换为 FaultTreeSchema            │
+│  • 为每个节点添加 sourceDetail        │
+└──────────────────────────────────────┘
+       │
+       │ 故障树 JSON
+       ▼
+  返回前端（含 fusionStatistics 统计）
+
+
+【关联接口】
+
+  POST   /api/v1/rag/generate                    触发故障树生成
+  GET    /api/v1/rag/tasks/{task_id}              获取生成任务状态
+  GET    /api/v1/rag/evidence/{paragraph_id}      获取段落溯源证据
+  POST   /api/v1/rag/evidence                     获取事件溯源证据
+
+
+【融合统计信息 fusionStatistics】
+
+  {
+    total_clusters: 5,           // 聚类总数
+    total_conflicts: 2,           // 检测到的冲突总数
+    resolved_conflicts: 2,        // 已解决的冲突数
+    fused_paragraphs_count: 8     // 融合后的段落数
+  }
+
+
+【模块二 YAML 配置参数】📌 Nacos 动态配置
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│  rag-generation-service / .env                                                  │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+  # 大模型配置
+  BAILIAN_API_KEY=your_api_key_here      # ⚠️ API密钥 [L5]
+  BAILIAN_API_URL=https://ark.cn-beijing.volces.com/api/v3/chat/completions  # ⚠️ API地址 [L6]
+
+  # 向量模型配置
+  VECTOR_MODEL=bge-m3-base              # ⚠️ 向量模型名称 [L9]
+  VECTOR_DIM=768                        # ⚠️ 向量维度 [L10]
+
+  # RabbitMQ配置
+  RABBITMQ_HOST=localhost               # ⚠️ RabbitMQ主机 [L2]
+  RABBITMQ_PORT=5672                    # ⚠️ RabbitMQ端口 [L3]
+  RABBITMQ_USER=guest                   # ⚠️ RabbitMQ用户名 [L4]
+  RABBITMQ_PASSWORD=guest             # ⚠️ RabbitMQ密码 [L5]
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│  rag-generation-service / rag_api.py (硬编码参数)                                 │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+  # FusionEngine 初始化参数 [L25]
+  fusion_engine = FusionEngine(
+      similarity_threshold=0.7,         # ⚠️ 段落相似度阈值 (建议通过 Nacos 动态配置)
+      auto_resolve_low_severity=True
+  )
+
+  # 建议：在 Nacos 中添加 fta-rag-config.yaml 或在 .env 中添加
+  # FUSION_SIMILARITY_THRESHOLD=0.7
+
+
+================================================================================
+模块三：规则校验
+================================================================================
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                              规则校验                                           │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+  前端：提交故障树进行校验
+       │
+       │ POST /api/v1/validation/validate
+       │ 或 RabbitMQ: validate-fault-tree-queue
+       ▼
+┌──────────────────────────────────────┐
+│  RuleValidationController.validate() │
+│  [RuleValidationController.java:L30+] │
+└──────────────────────────────────────┘
+       │
+       │ 规则校验
+       ▼
+┌──────────────────────────────────────┐
+│  RuleValidationService.validate()     │
+│  [RuleValidationService.java]         │
+│                                      │
+│  校验规则：                          │
+│  • 循环依赖检测                       │
+│  • 底事件子节点检测                   │
+│  • 逻辑门输入数量校验                 │
+│  • 事件类型一致性校验                 │
+│  • 父子关系合理性校验                 │
+└──────────────────────────────────────┘
+       │
+       │ 校验结果
+       ▼
+  返回 ValidationResultDTO
+
+
+【关联接口】
+
+  POST   /api/v1/validation/validate           校验故障树
+
+
+【模块三 YAML 配置参数】📌 Nacos 动态配置
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│  rule-validation-service / application.yml                                       │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+  # RabbitMQ连接配置
+  spring:
+    rabbitmq:
+      host: ${rabbitmq.host:localhost}       # ⚠️ RabbitMQ主机 [L16]
+      port: ${rabbitmq.port:5672}           # ⚠️ RabbitMQ端口 [L17]
+      username: ${rabbitmq.username:guest}  # ⚠️ RabbitMQ用户名 [L18]
+      password: ${rabbitmq.password:guest} # ⚠️ RabbitMQ密码 [L19]
+
+
+================================================================================
+模块四：知识图谱
+================================================================================
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                              知识图谱                                           │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+  文档解析时更新：
+       │
+       │ 文档解析完成 → 提取因果关系
+       ▼
+┌──────────────────────────────────────┐
+│  KnowledgeGraphService.enrichKnowledge│
+│  (被 VectorStoreService 调用)         │
+│  [KnowledgeGraphService.java]         │
+└──────────────────────────────────────┘
+       │
+       │ 因果模式
+       ▼
+┌──────────────────────────────────────┐
+│  知识图谱存储                         │
+│  (JanusGraph / Neo4j)                 │
+│     ⚠️ 配置参数: neo4j.uri
+│     📁 文件: application.yml#L4
+└──────────────────────────────────────┘
+
+
+  故障树生成时查询：
+       │
+       │ POST /api/v1/kg/query-template
+       │ {topEvent: "电机过热", equipmentType: "驱动系统"}
+       ▼
+┌──────────────────────────────────────┐
+│  KnowledgeGraphService.queryTemplate()│
+└──────────────────────────────────────┘
+       │
+       │ 模板 JSON
+       ▼
+  返回知识图谱模板（用于 RAG 提示词）
+
+
+【关联接口】
+
+  POST   /api/v1/kg/query-template       查询知识图谱模板
+  PUT    /api/v1/kg/enrich               更新知识图谱
+  POST   /api/v1/kg/initialize           初始化本体
+
+
+【模块四 YAML 配置参数】📌 Nacos 动态配置
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│  knowledge-graph-service / application.yml                                       │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+  spring:
+    neo4j:
+      uri: bolt://localhost:7687           # ⚠️ Neo4j连接URI [L3]
+      authentication:
+        username: neo4j                   # ⚠️ Neo4j用户名 [L5]
+        password: neo4j                   # ⚠️ Neo4j密码 [L6]
+
+  # 知识图谱配置
+  knowledge:
+    graph:
+      ontology:
+        path: ./ontology                  # ⚠️ 本体文件路径 [L18]
+      templates:
+        path: ./templates                 # ⚠️ 模板文件路径 [L20]
+
+
+================================================================================
+模块五：故障树编辑
+================================================================================
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                              故障树编辑                                         │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+  前端：编辑已保存的故障树
+       │
+       │ RESTful API 调用
+       ▼
+┌──────────────────────────────────────┐
+│  FaultTreeEditorController          │
+│  [FaultTreeEditorController.java]   │
+└──────────────────────────────────────┘
+       │
+       │ CRUD 操作
+       ▼
+┌──────────────────────────────────────┐
+│  FaultTreeEditorService              │
+│  [FaultTreeEditorService.java]       │
+│                                      │
+│  • createFaultTree()                  │
+│  • updateFaultTree()                  │
+│  • deleteFaultTree()                  │
+│  • addNode() / updateNode()           │
+│  • deleteNode() / moveNode()         │
+│  • updateNodePositions()             │
+│  • updateNodeConfidence()            │
+└──────────────────────────────────────┘
+       │
+       ▼
+┌──────────────────────────────────────┐
+│  FaultTreeRepository                 │
+│  (MySQL 持久化)                      │
+└──────────────────────────────────────┘
+
+
+【关联接口】
+
+  POST   /api/v1/fault-trees                    创建故障树
+  GET    /api/v1/fault-trees/{treeId}           获取故障树
+  GET    /api/v1/fault-trees                    获取所有故障树
+  PUT    /api/v1/fault-trees/{treeId}           更新故障树
+  DELETE /api/v1/fault-trees/{treeId}           删除故障树
+  POST   /api/v1/fault-trees/{treeId}/nodes     添加节点
+  PUT    /api/v1/fault-trees/{treeId}/nodes     更新节点
+  DELETE /api/v1/fault-trees/{treeId}/nodes/{eventId}  删除节点
+  PUT    /api/v1/fault-trees/{treeId}/nodes/{eventId}/move  移动节点
+  PUT    /api/v1/fault-trees/{treeId}/positions 更新节点位置
+  PUT    /api/v1/fault-trees/{treeId}/nodes/{eventId}/confidence  更新置信度
+  PUT    /api/v1/fault-trees/{treeId}/nodes/{eventId}/verification  更新验证状态
+
+
+【模块五 YAML 配置参数】📌 Nacos 动态配置
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│  fault-tree-editor-service / application.yml                                    │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+  # 数据源配置
+  spring:
+    datasource:
+      url: jdbc:mysql://mysql:3306/fta_editor?useSSL=false&serverTimezone=UTC
+                                           # ⚠️ MySQL连接URL [L15]
+      username: root                       # ⚠️ 数据库用户名 [L16]
+      password: 123456                    # ⚠️ 数据库密码 [L17]
+      driver-class-name: com.mysql.cj.jdbc.Driver  # ⚠️ 驱动类名 [L18]
+
+
+================================================================================
+模块六：反馈学习
+================================================================================
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                              反馈学习                                           │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+  专家提交反馈：
+       │
+       │ POST /api/v1/feedback
+       │ {treeId, nodeId, originalValue, newValue, feedbackType, comment}
+       ▼
+┌──────────────────────────────────────┐
+│  FeedbackLearningController         │
+│  [FeedbackLearningController.java]  │
+└──────────────────────────────────────┘
+       │
+       │ 保存反馈
+       ▼
+┌──────────────────────────────────────┐
+│  FeedbackLearningService            │
+│  [FeedbackLearningService.java]    │
+│                                      │
+│  • createFeedback()                  │
+│  • processFeedbackBatch()            │
+│  • optimizeModels()                  │
+└──────────────────────────────────────┘
+       │
+       │ 反馈数据
+       ▼
+┌──────────────────────────────────────┐
+│  反馈数据库存储                       │
+│  (MySQL/Oracle)                     │
+└──────────────────────────────────────┘
+       │
+       │ 定期处理
+       ▼
+┌──────────────────────────────────────┐
+│  反馈数据向量化                       │
+│  • 存入 RAG 向量库                   │
+│  • 更新提示词模板                     │
+└──────────────────────────────────────┘
+
+
+【关联接口】
+
+  POST   /api/v1/feedback                      提交反馈
+  GET    /api/v1/feedback/{feedbackId}         获取反馈
+  GET    /api/v1/feedback/tree/{treeId}        获取故障树的反馈
+  GET    /api/v1/feedback/user/{userId}        获取用户的反馈
+  GET    /api/v1/feedback                      获取所有反馈
+  POST   /api/v1/feedback/process-batch        批量处理反馈
+  POST   /api/v1/feedback/optimize-models      优化模型
+
+
+【模块六 YAML 配置参数】📌 Nacos 动态配置
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│  feedback-learning-service / application.yml                                    │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+  # 数据源配置
+  spring:
+    datasource:
+      url: ${datasource.url:jdbc:oracle:thin:@localhost:1521:XEPDB1}
+                                           # ⚠️ Oracle连接URL [L12]
+      driverClassName: ${datasource.driverClassName:oracle.jdbc.OracleDriver}
+                                           # ⚠️ 驱动类名 [L13]
+      username: ${datasource.username:fta_user}  # ⚠️ 数据库用户名 [L14]
+      password: ${datasource.password:123456}   # ⚠️ 数据库密码 [L15]
+
+  # 反馈学习配置
+  feedback:
+    learning:
+      batch:
+        size: 10                           # ⚠️ 批处理大小 [L30]
+      update:
+        interval: 3600000                  # ⚠️ 更新间隔(ms) [L32]
+
+
+================================================================================
+模块七：评估服务
+================================================================================
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                              评估服务                                           │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+  前端：提交故障树进行评估
+       │
+       │ POST /api/v1/evaluation/evaluate
+       │ {generatedTree, goldStandardTree}
+       ▼
+┌──────────────────────────────────────┐
+│  Evaluation API: evaluate_fault_tree()│
+│  [evaluation_api.py]                  │
+└──────────────────────────────────────┘
+       │
+       │ 对比生成树与黄金标准
+       ▼
+┌──────────────────────────────────────┐
+│  FaultTreeEvaluator.evaluate()        │
+│  [fault_tree_evaluator.py]           │
+│                                      │
+│  评估指标：                           │
+│  • structureAccuracy (结构准确率)    │
+│  • eventPrecision (事件精确率)       │
+│  • eventRecall (事件召回率)          │
+│  • eventF1 (F1 值)                   │
+│  • relationAccuracy (关系准确率)     │
+│  • gateAccuracy (逻辑门准确率)      │
+└──────────────────────────────────────┘
+       │
+       │ 评估结果
+       ▼
+  返回评估报告（含差异分析）
+
+
+【关联接口】
+
+  POST   /api/v1/evaluation/evaluate           评估故障树
+  GET    /api/v1/evaluation/history            获取评估历史
+  GET    /api/v1/evaluation/statistics         获取评估统计
+
+
+【模块七 YAML 配置参数】📌 Nacos 动态配置
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│  evaluation-service / evaluation_api.py (当前硬编码)                            │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+  # 评估服务暂无独立配置文件，建议创建 .env 或 evaluation-config.yaml
+  # 建议添加以下配置参数：
+  #
+  # EVALUATION_WEIGHT_STRUCTURE=0.30     # 结构准确率权重
+  # EVALUATION_WEIGHT_EVENT=0.30         # 事件准确率权重
+  # EVALUATION_WEIGHT_RELATION=0.40      # 关系准确率权重
+  # EVALUATION_MIN_CONFIDENCE=0.80        # 最低置信度阈值
+
+
+================================================================================
+模块间数据流转图
+================================================================================
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                              模块间数据流转                                       │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+  【文档上传 → 故障树生成】
+
+  文档上传
+     │
+     ▼
+  文档解析（DocumentService）
+     │
+     ▼
+  向量存储（VectorStoreService）←── 可选：知识图谱更新
+     │
+     │ docId
+     ▼
+  RAG 获取文档内容
+     │
+     ▼
+  多文档融合（FusionEngine）
+     │
+     ▼
+  故障树生成（RAG）
+     │
+     ▼
+  返回故障树
+
+
+  【故障树生成 → 规则校验 → 故障树编辑 → 反馈学习 → 评估】
+
+  故障树生成（RAG）
+     │
+     ▼
+  规则校验（Validation）
+     │
+     ├─ 校验通过 ─▶ 故障树编辑（Editor）
+     │                    │
+     │                    ▼
+     │               专家修改
+     │                    │
+     │                    ▼
+     │               反馈学习（Feedback）
+     │                    │
+     │                    ▼
+     │               评估服务（Evaluation）
+     │
+     └─ 校验失败 ─▶ 返回错误，重新生成
+
+
+================================================================================
+来源类型与可信度权重
+================================================================================
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                              来源类型与可信度权重                                 │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+  来源类型              │ 可信度权重 │ 说明
+  ─────────────────────┼───────────┼────────────────────
+  industry_standard    │   1.2     │ 行业标准，权威性最高
+  equipment_manual     │   1.0     │ 设备手册，标准文档
+  theory_paper         │   0.9     │ 理论论文，有参考价值
+  maintenance_record   │   0.8     │ 维修记录，实践经验
+  user_feedback        │   0.6     │ 用户反馈，可信度较低
+  unknown              │   0.5     │ 未知来源（默认）
+
+  ⚠️ 注意：可信度权重在代码中定义，建议迁移到 Nacos 配置中心
+     📁 文件: ParagraphMetadata.java / DocumentMetadata.java (getCredibilityWeight方法)
+
+
+================================================================================
+服务端口与路由
+================================================================================
+
+  服务名称                │ 端口   │ 路由前缀
+  ───────────────────────┼───────┼──────────────────
+  document-ingest-service│ 8081  │ /api/v1/documents
+  vector-store-service    │ 8084  │ /api/v1/vector
+  knowledge-graph-service │ 8082  │ /api/v1/kg
+  fault-tree-editor-service│ 8083 │ /api/v1/fault-trees
+  rule-validation-service │ 8085  │ /api/v1/validation
+  feedback-learning-service│ 8086 │ /api/v1/feedback
+  rag-generation-service   │ 8000  │ /api/v1/rag
+  fusion-service           │ 8001  │ /api/v1/fusion
+  evaluation-service       │ 8002  │ /api/v1/evaluation
+  auth-service             │ 8087  │ /api/v1/auth
+
+  ⚠️ 端口配置位置: 各服务 / application.yml 的 server.port 字段
+
+
+================================================================================
+消息队列配置
+================================================================================
+
+  队列名称                    │ 用途
+  ──────────────────────────┼──────────────────────────
+  document-parse-queue       │ 文档解析任务队列
+  validate-fault-tree-queue │ 故障树校验任务队列
+  document-exchange         │ 文档处理结果交换器
+  validation-exchange       │ 校验结果交换器
+
+  ⚠️ 消息队列配置位置:
+     各服务 / application.yml 的 spring.rabbitmq.* 字段
+
+
+================================================================================
+配置参数速查表（按文件分类）
+================================================================================
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                              配置参数速查表                                       │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+📁 document-ingest-service / application.yml
+  ┌────────────────────────────────────────────┬───────────────┬────────────────┐
+  │ 参数路径                                    │ 默认值         │ 说明           │
+  ├────────────────────────────────────────────┼───────────────┼────────────────┤
+  │ spring.servlet.multipart.max-file-size     │ 100MB         │ 单文件最大大小 │
+  │ spring.servlet.multipart.max-request-size  │ 100MB         │ 请求最大大小   │
+  │ spring.rabbitmq.host                       │ localhost     │ RabbitMQ主机   │
+  │ spring.rabbitmq.port                       │ 5672          │ RabbitMQ端口   │
+  │ spring.rabbitmq.username                   │ guest         │ RabbitMQ用户名 │
+  │ spring.rabbitmq.password                   │ guest         │ RabbitMQ密码   │
+  │ document.storage.path                      │ ./data/documents │ 文档存储路径 │
+  └────────────────────────────────────────────┴───────────────┴────────────────┘
+
+📁 vector-store-service / application.yml
+  ┌────────────────────────────────────────────┬───────────────┬────────────────┐
+  │ 参数路径                                    │ 默认值         │ 说明           │
+  ├────────────────────────────────────────────┼───────────────┼────────────────┤
+  │ spring.datasource.url                      │ (见文件)       │ MySQL连接URL   │
+  │ spring.datasource.username                 │ root          │ 数据库用户名   │
+  │ spring.datasource.password                 │ 123456        │ 数据库密码     │
+  │ vector.model.name                          │ BGE-M3        │ 向量模型名称   │
+  │ vector.dimension                            │ 768           │ 向量维度       │
+  │ vector.batch-size                          │ 32            │ 批处理大小     │
+  │ vector.threshold                           │ 0.7           │ 相似度阈值     │
+  └────────────────────────────────────────────┴───────────────┴────────────────┘
+
+📁 knowledge-graph-service / application.yml
+  ┌────────────────────────────────────────────┬─────────────────┬──────────────┐
+  │ 参数路径                                    │ 默认值           │ 说明         │
+  ├────────────────────────────────────────────┼─────────────────┼──────────────┤
+  │ spring.neo4j.uri                           │ bolt://localhost:7687 │ Neo4j URI │
+  │ spring.neo4j.authentication.username       │ neo4j           │ Neo4j用户名   │
+  │ spring.neo4j.authentication.password       │ neo4j           │ Neo4j密码     │
+  │ knowledge.graph.ontology.path              │ ./ontology       │ 本体文件路径 │
+  │ knowledge.graph.templates.path             │ ./templates      │ 模板文件路径 │
+  └────────────────────────────────────────────┴─────────────────┴──────────────┘
+
+📁 feedback-learning-service / application.yml
+  ┌────────────────────────────────────────────┬─────────────────┬──────────────┐
+  │ 参数路径                                    │ 默认值           │ 说明         │
+  ├────────────────────────────────────────────┼─────────────────┼──────────────┤
+  │ spring.datasource.url                      │ (见文件)         │ Oracle连接URL │
+  │ spring.datasource.username                 │ fta_user         │ 数据库用户名  │
+  │ spring.datasource.password                 │ 123456          │ 数据库密码    │
+  │ feedback.learning.batch.size               │ 10              │ 批处理大小    │
+  │ feedback.learning.update.interval          │ 3600000         │ 更新间隔(ms)  │
+  └────────────────────────────────────────────┴─────────────────┴──────────────┘
+
+📁 rag-generation-service / .env
+  ┌────────────────────────────────────────────┬──────────────────────────────────┐
+  │ 参数名                                      │ 默认值                            │
+  ├────────────────────────────────────────────┼──────────────────────────────────┤
+  │ RABBITMQ_HOST                               │ localhost                         │
+  │ RABBITMQ_PORT                               │ 5672                              │
+  │ RABBITMQ_USER                               │ guest                             │
+  │ RABBITMQ_PASSWORD                           │ guest                             │
+  │ BAILIAN_API_KEY                             │ (需要配置)                        │
+  │ BAILIAN_API_URL                             │ (见文件)                          │
+  │ VECTOR_MODEL                                │ bge-m3-base                      │
+  │ VECTOR_DIM                                  │ 768                               │
+  └────────────────────────────────────────────┴──────────────────────────────────┘
+
+📁 rag_api.py (代码中硬编码，建议迁移)
+  ┌────────────────────────────────────────────┬───────────────┬────────────────┐
+  │ 参数                                      │ 默认值         │ 建议配置位置    │
+  ├────────────────────────────────────────────┼───────────────┼────────────────┤
+  │ fusion_engine.similarity_threshold         │ 0.7           │ Nacos 或 .env  │
+  │ fusion_engine.auto_resolve_low_severity   │ True          │ Nacos 或 .env  │
+  └────────────────────────────────────────────┴───────────────┴────────────────┘
+
+
+================================================================================

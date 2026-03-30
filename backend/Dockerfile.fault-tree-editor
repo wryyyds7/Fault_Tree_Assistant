@@ -1,0 +1,11 @@
+FROM openjdk:17-jdk-alpine
+
+WORKDIR /app
+
+COPY . /app
+
+RUN ./mvnw clean package -DskipTests -pl fault-tree-editor-service -am
+
+EXPOSE 8084
+
+CMD ["java", "-jar", "fault-tree-editor-service/target/fault-tree-editor-service-1.0.0.jar"]

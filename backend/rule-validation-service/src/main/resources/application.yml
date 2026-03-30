@@ -1,0 +1,27 @@
+spring:
+  application:
+    name: rule-validation-service
+  config:
+    import: optional:nacos:${spring.application.name}.yaml?namespace=fta-namespace&group=DEFAULT_GROUP&extension=yaml
+  cloud:
+    nacos:
+      discovery:
+        server-addr: localhost:8848
+        namespace: fta-namespace
+        group: DEFAULT_GROUP
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: guest
+    password: guest
+
+server:
+  port: 8083
+
+# 规则引擎配置
+rule:
+  engine:
+    rules:
+      path: ./rules
+    update:
+      interval: 60000 # 规则更新间隔（毫秒）

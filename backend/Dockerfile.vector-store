@@ -1,0 +1,9 @@
+FROM openjdk:17-jdk-alpine
+
+WORKDIR /app
+
+COPY vector-store-service/target/vector-store-service-1.0.0.jar app.jar
+
+EXPOSE 8084
+
+ENTRYPOINT ["java", "-jar", "app.jar"]

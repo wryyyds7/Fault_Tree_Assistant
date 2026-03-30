@@ -1,0 +1,11 @@
+FROM openjdk:17-jdk-alpine
+
+WORKDIR /app
+
+COPY . /app
+
+RUN ./mvnw clean package -DskipTests -pl rule-validation-service -am
+
+EXPOSE 8083
+
+CMD ["java", "-jar", "rule-validation-service/target/rule-validation-service-1.0.0.jar"]

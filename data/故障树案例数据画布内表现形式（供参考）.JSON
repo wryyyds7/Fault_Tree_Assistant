@@ -1,0 +1,203 @@
+{
+    "attr": {
+        "background": "#fff",
+        "fontColor": "#000",
+        "eventColor": "#000",
+        "eventFillColor": "#fff",
+        "gateColor": "#000",
+        "gateFillColor": "#fff",
+        "linkColor": "#456",
+        "eventCode": true,
+        "eventProbability": false,
+        "containerX": -53,
+        "containerY": -74,
+        "width": 1920,
+        "height": 1080
+    },
+    "nodeList": [
+        {
+            "type": "1",
+            "gate": "2",
+            "name": "登机梯故障",
+            "event": null,
+            "x": 152,
+            "y": 161,
+            "id": "node-85812c96275d43f0878ddb847acb349e",
+            "transfer": ""
+        },
+        {
+            "type": "2",
+            "event": {
+                "id": "",
+                "name": "",
+                "description": "",
+                "errorLevel": "",
+                "priority": 0,
+                "probability": 1e-8,
+                "showProbability": 0.000001,
+                "rules": [],
+                "investigateMethod": "",
+                "documents": []
+            },
+            "gate": "2",
+            "name": "回收故障",
+            "x": 352,
+            "y": 161,
+            "id": "node-60c538c8c19047228919a5ceab74ccf6",
+            "transfer": ""
+        },
+        {
+            "type": "2",
+            "event": {
+                "id": "",
+                "name": "",
+                "description": "",
+                "errorLevel": "",
+                "priority": 0,
+                "probability": 1e-8,
+                "showProbability": 0.000001,
+                "rules": [],
+                "investigateMethod": "",
+                "documents": []
+            },
+            "gate": "2",
+            "name": "释放故障",
+            "x": 358,
+            "y": 568,
+            "id": "node-5062977a6b854bc98de3b020a8d68644",
+            "transfer": ""
+        },
+        {
+            "type": "3",
+            "event": {
+                "id": "2412070",
+                "name": "梯子机械锁为释放",
+                "description": "",
+                "errorLevel": "",
+                "priority": 0,
+                "probability": 1e-8,
+                "showProbability": 0.000001,
+                "rules": [],
+                "investigateMethod": "",
+                "documents": []
+            },
+            "gate": "2",
+            "name": "梯子气路压力不足",
+            "x": 552,
+            "y": 161,
+            "id": "node-8c65a3be4def49fb9a60dc9f408eebeb",
+            "transfer": ""
+        },
+        {
+            "type": "3",
+            "event": {
+                "id": "2412071",
+                "name": "梯子机械锁故障",
+                "description": "",
+                "errorLevel": "",
+                "priority": 0,
+                "probability": 1e-8,
+                "showProbability": 0.000001,
+                "rules": [
+                    {
+                        "deviceTypeId": "114",
+                        "measurePointName": "气动梯限位",
+                        "symbol": ">",
+                        "thresholds": [
+                            "-1"
+                        ],
+                        "duration": "3"
+                    }
+                ],
+                "investigateMethod": "",
+                "documents": []
+            },
+            "gate": "2",
+            "name": "梯子机械锁故障",
+            "x": 552,
+            "y": 261,
+            "id": "node-42d21b4037ab4447a4e6afe5da737ebc",
+            "transfer": ""
+        },
+        {
+            "type": "3",
+            "event": {
+                "id": "2412070",
+                "name": "梯子气路压力不足",
+                "description": "",
+                "errorLevel": "",
+                "priority": 0,
+                "probability": 1e-8,
+                "showProbability": 0.000001,
+                "rules": [],
+                "investigateMethod": "",
+                "documents": []
+            },
+            "gate": "2",
+            "name": "梯子气路压力不足",
+            "x": 558,
+            "y": 568,
+            "id": "node-4582b864d99148e6837e0c9901c786fc",
+            "transfer": ""
+        },
+        {
+            "type": "3",
+            "event": {
+                "id": "2412070",
+                "name": "梯子机械锁为释放",
+                "description": "",
+                "errorLevel": "",
+                "priority": 0,
+                "probability": 1e-8,
+                "showProbability": 0.000001,
+                "rules": [],
+                "investigateMethod": "",
+                "documents": []
+            },
+            "gate": "2",
+            "name": "梯子机械锁为释放",
+            "x": 558,
+            "y": 668,
+            "id": "node-017f5c35c59646bf805509218ab1403f",
+            "transfer": ""
+        }
+    ],
+    "linkList": [
+        {
+            "type": "link",
+            "sourceId": "node-60c538c8c19047228919a5ceab74ccf6",
+            "targetId": "node-85812c96275d43f0878ddb847acb349e",
+            "isCondition": false
+        },
+        {
+            "type": "link",
+            "sourceId": "node-5062977a6b854bc98de3b020a8d68644",
+            "targetId": "node-85812c96275d43f0878ddb847acb349e",
+            "isCondition": false
+        },
+        {
+            "type": "link",
+            "sourceId": "node-8c65a3be4def49fb9a60dc9f408eebeb",
+            "targetId": "node-60c538c8c19047228919a5ceab74ccf6",
+            "isCondition": false
+        },
+        {
+            "type": "link",
+            "sourceId": "node-42d21b4037ab4447a4e6afe5da737ebc",
+            "targetId": "node-60c538c8c19047228919a5ceab74ccf6",
+            "isCondition": false
+        },
+        {
+            "type": "link",
+            "sourceId": "node-4582b864d99148e6837e0c9901c786fc",
+            "targetId": "node-5062977a6b854bc98de3b020a8d68644",
+            "isCondition": false
+        },
+        {
+            "type": "link",
+            "sourceId": "node-017f5c35c59646bf805509218ab1403f",
+            "targetId": "node-5062977a6b854bc98de3b020a8d68644",
+            "isCondition": false
+        }
+    ]
+}

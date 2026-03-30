@@ -1,0 +1,40 @@
+spring:
+  application:
+    name: vector-store-service
+  config:
+    import: optional:nacos:${spring.application.name}.yaml?namespace=fta-namespace&group=DEFAULT_GROUP&extension=yaml
+  cloud:
+    nacos:
+      discovery:
+        server-addr: localhost:8848
+        namespace: fta-namespace
+        group: DEFAULT_GROUP
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: guest
+    password: guest
+  datasource:
+    url: jdbc:mysql://mysql:3306/fta_vector_store?useSSL=false&serverTimezone=UTC
+    username: root
+    password: 123456
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  mybatis:
+    mapper-locations: classpath:mapper/*.xml
+    type-aliases-package: com.cxyaqcdm.fta.vector.entity
+
+server:
+  port: 8084
+
+# 向量模型配置
+vector:
+  model:
+    name: BGE-M3
+  dimension: 768
+  batch-size: 32
+  threshold: 0.7
+
+# 日志配置
+logging:
+  level:
+    com.cxyaqcdm.fta.vector: info

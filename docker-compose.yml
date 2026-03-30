@@ -1,0 +1,215 @@
+version: '3.8'
+
+services:
+  # 消息队列
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    networks:
+      - fta-network
+
+  # MySQL数据库
+  mysql:
+    image: mysql:8.0
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: 123456
+      MYSQL_DATABASE: fta_vector_store
+    volumes:
+      - mysql-data:/var/lib/mysql
+    networks:
+      - fta-network
+
+  # 知识图谱数据库
+  neo4j:
+    image: neo4j:4.4
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    environment:
+      NEO4J_AUTH: neo4j/password
+      NEO4J_PLUGINS: '[\"apoc\"]'
+    volumes:
+      - neo4j-data:/data
+    networks:
+      - fta-network
+
+  # 文档存储
+  minio:
+    image: minio/minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server --console-address ":9001" /data
+    volumes:
+      - minio-data:/data
+    networks:
+      - fta-network
+
+  # 后端服务
+  gateway-service:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.gateway
+    ports:
+      - "8080:8080"
+    depends_on:
+      - rabbitmq
+    environment:
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: guest
+      RABBITMQ_PASSWORD: guest
+    networks:
+      - fta-network
+
+  document-ingest-service:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.document-ingest
+    ports:
+      - "8081:8081"
+    depends_on:
+      - rabbitmq
+      - minio
+    environment:
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: guest
+      RABBITMQ_PASSWORD: guest
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+    networks:
+      - fta-network
+
+  knowledge-graph-service:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.knowledge-graph
+    ports:
+      - "8082:8082"
+    depends_on:
+      - neo4j
+    environment:
+      NEO4J_URI: bolt://neo4j:7687
+      NEO4J_USERNAME: neo4j
+      NEO4J_PASSWORD: password
+    networks:
+      - fta-network
+
+  rule-validation-service:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.rule-validation
+    ports:
+      - "8083:8083"
+    depends_on:
+      - rabbitmq
+    environment:
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: guest
+      RABBITMQ_PASSWORD: guest
+    networks:
+      - fta-network
+
+  fault-tree-editor-service:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.fault-tree-editor
+    ports:
+      - "8084:8084"
+    depends_on:
+      - rabbitmq
+    environment:
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: guest
+      RABBITMQ_PASSWORD: guest
+    networks:
+      - fta-network
+
+  feedback-learning-service:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.feedback-learning
+    ports:
+      - "8085:8085"
+    depends_on:
+      - rabbitmq
+    environment:
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: guest
+      RABBITMQ_PASSWORD: guest
+    networks:
+      - fta-network
+
+  # 向量库服务
+  vector-store-service:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.vector-store
+    ports:
+      - "8086:8084"
+    depends_on:
+      - rabbitmq
+    environment:
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: guest
+      RABBITMQ_PASSWORD: guest
+    networks:
+      - fta-network
+
+  # Python服务
+  rag-generation-service:
+    build:
+      context: ./python-service/rag-generation-service
+      dockerfile: Dockerfile
+    depends_on:
+      - rabbitmq
+    environment:
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: guest
+      RABBITMQ_PASSWORD: guest
+      API_KEY: ${API_KEY}
+      API_URL: ${API_URL}
+    networks:
+      - fta-network
+
+  # 前端服务
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:80"
+    depends_on:
+      - document-ingest-service
+      - knowledge-graph-service
+      - rule-validation-service
+      - fault-tree-editor-service
+      - feedback-learning-service
+    networks:
+      - fta-network
+
+volumes:
+  neo4j-data:
+  minio-data:
+  mysql-data:
+
+networks:
+  fta-network:
+    driver: bridge

@@ -1,0 +1,11 @@
+FROM openjdk:17-jdk-alpine
+
+WORKDIR /app
+
+COPY . /app
+
+RUN ./mvnw clean package -DskipTests -pl document-ingest-service -am
+
+EXPOSE 8081
+
+CMD ["java", "-jar", "document-ingest-service/target/document-ingest-service-1.0.0.jar"]

@@ -1,0 +1,324 @@
+package com.cxyaqcdm.fta.vector.service.impl;
+
+import com.cxyaqcdm.fta.vector.client.KnowledgeGraphClient;
+import com.cxyaqcdm.fta.vector.entity.DocumentMetadata;
+import com.cxyaqcdm.fta.vector.entity.ParagraphMetadata;
+import com.cxyaqcdm.fta.vector.entity.VectorStore;
+import com.cxyaqcdm.fta.vector.mapper.DocumentMetadataMapper;
+import com.cxyaqcdm.fta.vector.mapper.ParagraphMetadataMapper;
+import com.cxyaqcdm.fta.vector.mapper.VectorStoreMapper;
+import com.cxyaqcdm.fta.vector.service.VectorStoreService;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+
+@Service
+@RequiredArgsConstructor
+@Slf4j
+public class VectorStoreServiceImpl implements VectorStoreService {
+
+    private final DocumentMetadataMapper documentMetadataMapper;
+    private final ParagraphMetadataMapper paragraphMetadataMapper;
+    private final VectorStoreMapper vectorStoreMapper;
+    private final KnowledgeGraphClient knowledgeGraphClient;
+
+    @Value("${vector.model.name}")
+    private String vectorModelName;
+
+    @Value("${vector.dimension}")
+    private Integer vectorDimension;
+
+    @Override
+    public DocumentMetadata createDocumentMetadata(String docId, String fileName, String fileType, Integer pageCount) {
+        DocumentMetadata metadata = new DocumentMetadata();
+        metadata.setDocId(docId);
+        metadata.setFileName(fileName);
+        metadata.setFileType(fileType);
+        metadata.setPageCount(pageCount);
+        metadata.setUploadTime(LocalDateTime.now());
+        metadata.setStatus("processed");
+        metadata.setCreatedAt();
+        
+        documentMetadataMapper.insert(metadata);
+        log.info("Created document metadata for docId: {}", docId);
+        return metadata;
+    }
+
+    @Override
+    public DocumentMetadata getDocumentMetadata(String docId) {
+        return documentMetadataMapper.findByDocId(docId);
+    }
+
+    @Override
+    public void updateDocumentMetadata(DocumentMetadata documentMetadata) {
+        documentMetadata.setUpdatedAt();
+        documentMetadataMapper.update(documentMetadata);
+    }
+
+    @Override
+    public void deleteDocumentMetadata(String docId) {
+        // 删除文档相关的所有数据
+        vectorStoreMapper.deleteByDocId(docId);
+        paragraphMetadataMapper.deleteByDocId(docId);
+        documentMetadataMapper.delete(docId);
+        log.info("Deleted document metadata for docId: {}", docId);
+    }
+
+    @Override
+    public List<ParagraphMetadata> createParagraphMetadata(String docId, List<Map<String, Object>> paragraphs) {
+        List<ParagraphMetadata> metadataList = new ArrayList<>();
+
+        for (int i = 0; i < paragraphs.size(); i++) {
+            Map<String, Object> paragraph = paragraphs.get(i);
+            ParagraphMetadata metadata = new ParagraphMetadata();
+            metadata.setParagraphId("para_" + UUID.randomUUID().toString().replace("-", ""));
+            metadata.setDocId(docId);
+            metadata.setSectionTitle((String) paragraph.get("sectionTitle"));
+            metadata.setPageNumber((Integer) paragraph.get("pageNumber"));
+            metadata.setParagraphNumber(i + 1);
+            metadata.setContent((String) paragraph.get("content"));
+            metadata.setTextLength(((String) paragraph.get("content")).length());
+            metadata.setKeywords((String) paragraph.get("keywords"));
+            metadata.setConfidenceScore((Double) paragraph.getOrDefault("confidenceScore", 0.0));
+            metadata.setSourceType((String) paragraph.getOrDefault("sourceType", "unknown"));
+            Object weightObj = paragraph.get("credibilityWeight");
+            if (weightObj != null) {
+                metadata.setCredibilityWeight(((Number) weightObj).doubleValue());
+            } else {
+                metadata.setCredibilityWeight(metadata.getCredibilityWeight());
+            }
+            metadata.setCreatedAt();
+
+            paragraphMetadataMapper.insert(metadata);
+            metadataList.add(metadata);
+        }
+
+        log.info("Created {} paragraph metadata entries for docId: {}", metadataList.size(), docId);
+        return metadataList;
+    }
+
+    @Override
+    public List<ParagraphMetadata> getParagraphMetadataByDocId(String docId) {
+        return paragraphMetadataMapper.findByDocId(docId);
+    }
+
+    @Override
+    public ParagraphMetadata getParagraphMetadataByParagraphId(String paragraphId) {
+        return paragraphMetadataMapper.findByParagraphId(paragraphId);
+    }
+
+    @Override
+    public List<VectorStore> generateVectors(String docId, List<ParagraphMetadata> paragraphs) {
+        List<VectorStore> vectors = new ArrayList<>();
+        
+        for (ParagraphMetadata paragraph : paragraphs) {
+            VectorStore vectorStore = new VectorStore();
+            vectorStore.setVectorId("vec_" + UUID.randomUUID().toString().replace("-", ""));
+            vectorStore.setParagraphId(paragraph.getParagraphId());
+            vectorStore.setDocId(docId);
+            
+            // 这里应该调用实际的向量模型生成向量
+            // 简化实现，实际项目中应该使用BGE-M3等模型
+            String vectorData = generateDummyVector();
+            vectorStore.setVectorData(vectorData);
+            vectorStore.setVectorDimension(vectorDimension);
+            vectorStore.setSimilarityScore(0.0);
+            vectorStore.setCreatedAt();
+            
+            vectorStoreMapper.insert(vectorStore);
+            vectors.add(vectorStore);
+        }
+        
+        log.info("Generated {} vectors for docId: {}", vectors.size(), docId);
+        return vectors;
+    }
+
+    @Override
+    public List<VectorStore> getVectorsByDocId(String docId) {
+        return vectorStoreMapper.findByDocId(docId);
+    }
+
+    @Override
+    public List<Map<String, Object>> searchSimilarVectors(String query, int topK) {
+        // 这里应该实现实际的向量检索逻辑
+        // 简化实现，返回空列表
+        return new ArrayList<>();
+    }
+
+    @Override
+    public void processDocument(String docId, String fileName, String fileType, Integer pageCount, List<Map<String, Object>> paragraphs,
+            String sourceType, Double credibilityWeight, String equipmentType, Boolean persistToKnowledgeBase) {
+        DocumentMetadata docMetadata = new DocumentMetadata();
+        docMetadata.setDocId(docId);
+        docMetadata.setFileName(fileName);
+        docMetadata.setFileType(fileType);
+        docMetadata.setPageCount(pageCount);
+        docMetadata.setUploadTime(LocalDateTime.now());
+        docMetadata.setStatus("processed");
+        docMetadata.setSourceType(sourceType);
+        if (credibilityWeight != null) {
+            docMetadata.setCredibilityWeight(credibilityWeight);
+        } else {
+            docMetadata.setCredibilityWeight(docMetadata.getCredibilityWeight());
+        }
+        docMetadata.setEquipmentType(equipmentType);
+        docMetadata.setPersistToKnowledgeBase(persistToKnowledgeBase);
+        docMetadata.setIsTemporary(!persistToKnowledgeBase);
+        docMetadata.setCreatedAt();
+
+        documentMetadataMapper.insert(docMetadata);
+        log.info("Created document metadata for docId: {}, sourceType: {}", docId, sourceType);
+
+        List<ParagraphMetadata> paragraphMetadataList = createParagraphMetadata(docId, paragraphs);
+
+        generateVectors(docId, paragraphMetadataList);
+
+        try {
+            Map<String, Object> causalPattern = new HashMap<>();
+            causalPattern.put("cause", "文档解析完成");
+            causalPattern.put("effect", "向量和元数据生成");
+            causalPattern.put("equipmentType", equipmentType != null ? equipmentType : "general");
+            causalPattern.put("gateType", "OR");
+
+            knowledgeGraphClient.enrichKnowledge(causalPattern);
+            log.info("Knowledge graph updated for docId: {}", docId);
+        } catch (Exception e) {
+            log.error("Failed to update knowledge graph: {}", e.getMessage());
+        }
+
+        log.info("Processed document: {}, paragraphs: {}", docId, paragraphs.size());
+    }
+
+    private String generateDummyVector() {
+        StringBuilder vector = new StringBuilder();
+        for (int i = 0; i < vectorDimension; i++) {
+            vector.append(Math.random());
+            if (i < vectorDimension - 1) {
+                vector.append(",");
+            }
+        }
+        return vector.toString();
+    }
+
+    @Override
+    public Map<String, Object> getParagraphEvidence(String paragraphId) {
+        ParagraphMetadata paragraph = paragraphMetadataMapper.findByParagraphId(paragraphId);
+        if (paragraph == null) {
+            return null;
+        }
+
+        DocumentMetadata document = documentMetadataMapper.findByDocId(paragraph.getDocId());
+
+        Map<String, Object> evidence = new HashMap<>();
+        evidence.put("paragraphId", paragraph.getParagraphId());
+        evidence.put("content", paragraph.getContent());
+        evidence.put("sectionTitle", paragraph.getSectionTitle());
+        evidence.put("pageNumber", paragraph.getPageNumber());
+        evidence.put("paragraphNumber", paragraph.getParagraphNumber());
+        evidence.put("keywords", paragraph.getKeywords());
+        evidence.put("confidenceScore", paragraph.getConfidenceScore());
+        evidence.put("textLength", paragraph.getTextLength());
+        evidence.put("sourceType", paragraph.getSourceType());
+        evidence.put("credibilityWeight", paragraph.getCredibilityWeight());
+
+        if (document != null) {
+            evidence.put("documentName", document.getFileName());
+            evidence.put("docId", document.getDocId());
+            evidence.put("docSourceType", document.getSourceType());
+            evidence.put("docCredibilityWeight", document.getCredibilityWeight());
+        }
+
+        return evidence;
+    }
+
+    @Override
+    public List<Map<String, Object>> searchWithEvidence(String query, int topK) {
+        List<Map<String, Object>> results = new ArrayList<>();
+
+        List<ParagraphMetadata> allParagraphs = new ArrayList<>();
+        List<DocumentMetadata> documents = documentMetadataMapper.findAll();
+
+        for (DocumentMetadata doc : documents) {
+            allParagraphs.addAll(paragraphMetadataMapper.findByDocId(doc.getDocId()));
+        }
+
+        for (ParagraphMetadata para : allParagraphs) {
+            if (para.getContent() != null && query != null) {
+                double similarity = calculateSimilarity(query.toLowerCase(), para.getContent().toLowerCase());
+                if (similarity > 0.1) {
+                    Map<String, Object> result = new HashMap<>();
+                    result.put("paragraphId", para.getParagraphId());
+                    result.put("content", para.getContent());
+                    result.put("sectionTitle", para.getSectionTitle());
+                    result.put("pageNumber", para.getPageNumber());
+                    result.put("similarityScore", similarity);
+                    result.put("confidenceScore", para.getConfidenceScore());
+
+                    DocumentMetadata doc = documentMetadataMapper.findByDocId(para.getDocId());
+                    if (doc != null) {
+                        result.put("documentName", doc.getFileName());
+                        result.put("sourceType", determineSourceType(doc.getFileType()));
+                    }
+
+                    results.add(result);
+                }
+            }
+        }
+
+        results.sort((a, b) -> Double.compare(
+            (Double) b.getOrDefault("similarityScore", 0.0),
+            (Double) a.getOrDefault("similarityScore", 0.0)
+        ));
+
+        return results.stream().limit(topK).toList();
+    }
+
+    private String determineSourceType(String fileType) {
+        if (fileType == null) {
+            return "UNKNOWN";
+        }
+        switch (fileType.toLowerCase()) {
+            case "pdf":
+                return "TECHNICAL_MANUAL";
+            case "doc":
+            case "docx":
+                return "MAINTENANCE_RECORD";
+            case "txt":
+                return "TEXT_DOCUMENT";
+            case "csv":
+            case "xlsx":
+                return "DATA_SHEET";
+            default:
+                return "UNKNOWN";
+        }
+    }
+
+    private double calculateSimilarity(String query, String text) {
+        if (query == null || text == null || query.isEmpty() || text.isEmpty()) {
+            return 0.0;
+        }
+
+        String[] queryWords = query.split("\\s+");
+        String[] textWords = text.split("\\s+");
+
+        int matchCount = 0;
+        for (String queryWord : queryWords) {
+            for (String textWord : textWords) {
+                if (textWord.contains(queryWord) || queryWord.contains(textWord)) {
+                    matchCount++;
+                    break;
+                }
+            }
+        }
+
+        return (double) matchCount / queryWords.length;
+    }
+}

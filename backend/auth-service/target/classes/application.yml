@@ -1,0 +1,45 @@
+spring:
+  application:
+    name: auth-service
+  config:
+    import: optional:nacos:${spring.application.name}.yaml?namespace=fta-namespace&group=DEFAULT_GROUP&extension=yaml
+  cloud:
+    nacos:
+      discovery:
+        server-addr: localhost:8848
+        namespace: fta-namespace
+        group: DEFAULT_GROUP
+
+
+  datasource:
+    url: ${datasource.url:jdbc:oracle:thin:@localhost:1521/XEPDB1}
+    driverClassName: ${datasource.driverClassName:oracle.jdbc.OracleDriver}
+    username: ${datasource.username:fta_user}
+    password: ${datasource.password:123456}
+  jpa:
+    database-platform: ${jpa.database-platform:org.hibernate.dialect.Oracle12cDialect}
+    hibernate:
+      ddl-auto: ${jpa.hibernate.ddl-auto:update}
+    show-sql: ${jpa.show-sql:true}
+
+server:
+  port: 8086
+
+# JWT配置
+jwt:
+  secret: yoursecretkeyyoursecretkeyyoursecretkeyyoursecretkeyyoursecretkeyyoursecretkeyyoursecretkeyyoursecretkey
+  expiration: 3600000 # 1小时
+  refresh-expiration: 86400000 # 24小时
+
+# 安全配置
+security:
+  enable-csrf: false
+  allowed-origins: "*"
+
+mybatis:
+  mapper-locations: classpath*:mapper/**/*.xml
+  type-aliases-package: com.cxyaqcdm.fta.auth.entity
+
+snowflake:
+  worker-id: ${SNOWFLAKE_WORKER_ID:1}
+  datacenter-id: ${SNOWFLAKE_DATACENTER_ID:1}

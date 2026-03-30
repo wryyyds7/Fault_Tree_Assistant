@@ -1,0 +1,109 @@
+API路径设置
+
+1. auth-service
+   - POST /api/v1/auth/login
+   - 作用：用户登录，返回JWT token
+   - POST /api/v1/auth/register
+   - 作用：用户注册
+
+2. document-ingest-service
+   - POST /api/v1/documents/upload
+   - 作用：上传文档并开始解析流程
+
+3. knowledge-graph-service
+   - POST /api/v1/kg/query-template
+   - 作用：查询故障树模板
+   - PUT /api/v1/kg/enrich
+   - 作用：丰富知识图谱
+   - POST /api/v1/kg/initialize
+   - 作用：初始化知识图谱本体
+
+4. rule-validation-service
+   - POST /api/v1/validation/validate
+   - 作用：验证故障树逻辑（返回错误类型和建议）
+
+5. fault-tree-editor-service
+   - POST /api/v1/fault-trees
+   - 作用：创建新的故障树
+   - GET /api/v1/fault-trees/{treeId}
+   - 作用：获取指定故障树
+   - GET /api/v1/fault-trees
+   - 作用：获取所有故障树
+   - PUT /api/v1/fault-trees/{treeId}
+   - 作用：更新故障树
+   - DELETE /api/v1/fault-trees/{treeId}
+   - 作用：删除故障树
+   - POST /api/v1/fault-trees/{treeId}/nodes?parentEventId={parentEventId}
+   - 作用：在指定父节点下添加新节点
+   - PUT /api/v1/fault-trees/{treeId}/nodes
+   - 作用：更新指定节点
+   - DELETE /api/v1/fault-trees/{treeId}/nodes/{eventId}
+   - 作用：删除指定节点
+   - PUT /api/v1/fault-trees/{treeId}/nodes/{eventId}/move?newParentId={newParentId}
+   - 作用：移动节点到新的父节点
+   - PUT /api/v1/fault-trees/{treeId}/positions
+   - 作用：批量更新节点位置
+   - PUT /api/v1/fault-trees/{treeId}/nodes/{eventId}/confidence
+   - 作用：更新节点置信度和验证状态
+   - PUT /api/v1/fault-trees/{treeId}/nodes/{eventId}/verification
+   - 作用：更新节点验证状态
+
+6. feedback-learning-service
+   - POST /api/v1/feedback
+   - 作用：创建反馈
+   - GET /api/v1/feedback/{feedbackId}
+   - 作用：获取指定反馈
+   - GET /api/v1/feedback/tree/{treeId}
+   - 作用：获取指定故障树的反馈
+   - GET /api/v1/feedback/user/{userId}
+   - 作用：获取指定用户的反馈
+   - GET /api/v1/feedback
+   - 作用：获取所有反馈
+   - POST /api/v1/feedback/process-batch
+   - 作用：处理批量反馈
+   - POST /api/v1/feedback/optimize-models
+   - 作用：优化模型
+
+7. vector-store-service
+   - POST /api/v1/vector/documents
+   - 作用：创建文档元数据
+   - GET /api/v1/vector/documents/{docId}
+   - 作用：获取文档元数据
+   - PUT /api/v1/vector/documents/{docId}
+   - 作用：更新文档元数据
+   - DELETE /api/v1/vector/documents/{docId}
+   - 作用：删除文档元数据
+   - POST /api/v1/vector/documents/{docId}/paragraphs
+   - 作用：创建段落元数据
+   - GET /api/v1/vector/documents/{docId}/paragraphs
+   - 作用：获取文档的所有段落
+   - GET /api/v1/vector/paragraphs/{paragraphId}
+   - 作用：获取指定段落元数据
+   - POST /api/v1/vector/documents/{docId}/vectors
+   - 作用：为文档生成向量
+   - GET /api/v1/vector/documents/{docId}/vectors
+   - 作用：获取文档的所有向量
+   - POST /api/v1/vector/search
+   - 作用：向量相似性搜索
+   - POST /api/v1/vector/process
+   - 作用：完整流程（文档->段落->向量）
+   - GET /api/v1/vector/paragraphs/{paragraphId}/evidence
+   - 作用：获取段落溯源证据详情
+   - POST /api/v1/vector/search-with-evidence
+   - 作用：带溯源证据的搜索
+
+8. rag-generation-service (Python FastAPI)
+   - GET /api/v1/rag/health
+   - 作用：健康检查
+   - POST /api/v1/rag/generate
+   - 作用：触发故障树AI生成
+   - GET /api/v1/rag/tasks/{task_id}
+   - 作用：获取生成任务状态
+   - GET /api/v1/rag/evidence/{paragraph_id}
+   - 作用：获取段落溯源证据
+   - POST /api/v1/rag/evidence
+   - 作用：获取事件的溯源证据列表
+
+9. gateway-service
+   - 端口：8080
+   - 作用：API网关，统一路由所有服务请求

@@ -1,0 +1,165 @@
+# 开发者提示
+
+## 已修复的问题 (2026-03-24)
+
+### 1. userId硬编码问题 ✅ 已修复
+- **位置**：
+  - fault-tree-editor-service/src/main/java/com/xuelangyun/fta/editor/controller/FaultTreeEditorController.java
+  - feedback-learning-service/src/main/java/com/xuelangyun/fta/feedback/controller/FeedbackLearningController.java
+- **修复方案**：通过 `SecurityContextHolder.getContext().getAuthentication()` 从JWT获取当前登录用户
+
+### 2. RAG服务HTTP API ✅ 已修复
+- **位置**：python-service/rag-generation-service/rag_api.py
+- **修复方案**：新增 FastAPI 服务，暴露 HTTP 接口供前端触发生成
+- **API端点**：
+  - POST /api/v1/rag/generate - 触发生成
+  - GET /api/v1/rag/tasks/{task_id} - 获取状态
+  - GET /api/v1/rag/evidence/{paragraph_id} - 溯源证据
+  - POST /api/v1/rag/evidence - 事件溯源列表
+
+### 3. 新增服务路由 ✅ 已修复
+- **位置**：gateway-service/src/main/resources/application.yml
+- **新增路由**：
+  - vector-store-service: /api/v1/vector/**
+  - rag-generation-service: /api/v1/rag/**
+
+## 配置信息填充指南
+
+### JWT密钥 (待配置)
+- **位置**：
+  - gateway-service/src/main/java/com/xuelangyun/fta/gateway/config/JwtAuthenticationFilter.java
+  - auth-service/src/main/resources/application.yml
+- **填充说明**：
+  - 替换临时密钥 "your-secret-key" 为安全的随机密钥
+  - 建议使用环境变量或配置中心管理
+
+### 数据库配置 (待配置)
+- **位置**：多个服务的application.yml文件
+  - auth-service/src/main/resources/application.yml
+  - fault-tree-editor-service/src/main/resources/application.yml
+  - feedback-learning-service/src/main/resources/application.yml
+- **填充说明**：
+  - 替换默认密码 "password" 为实际数据库密码
+  - 确保数据库连接信息正确
+
+### Neo4j配置 (待配置)
+- **位置**：knowledge-graph-service/src/main/resources/application.yml
+- **填充说明**：
+  - 替换默认密码 "password" 为实际Neo4j密码
+  - 确保Neo4j服务地址正确
+
+### RabbitMQ配置 (待配置)
+- **位置**：多个服务的application.yml文件
+  - document-ingest-service/src/main/resources/application.yml
+  - feedback-learning-service/src/main/resources/application.yml
+  - rule-validation-service/src/main/resources/application.yml
+- **填充说明**：
+  - 替换默认配置为实际RabbitMQ服务信息
+  - 确保用户名和密码正确
+  - 已定义的交换机和队列：
+    - 交换机：exchange.document, exchange.rag, exchange.fault-tree, exchange.validation, exchange.feedback, exchange.knowledge-graph
+    - 队列：queue.document.parse, queue.rag.generate, queue.validation.fault.tree, queue.feedback.process
+
+### Nacos配置 (待配置)
+- **位置**：所有服务的bootstrap.yml文件
+- **填充说明**：
+  - 确保Nacos服务地址、命名空间和分组正确
+  - 生产环境中应使用正式的Nacos服务
+
+### Python服务配置 (待配置)
+- **位置**：python-service/rag-generation-service/.env
+- **填充说明**：
+  - 配置LLM API密钥和相关参数
+  - 确保环境变量正确设置
+
+### 数据库配置 (待配置)
+- **位置**：多个服务的application.yml文件
+  - auth-service/src/main/resources/application.yml
+  - fault-tree-editor-service/src/main/resources/application.yml
+  - feedback-learning-service/src/main/resources/application.yml
+- **填充说明**：
+  - 生产环境中应使用MySQL数据库，替换默认的H2内存数据库
+  - 配置MySQL连接信息，包括url、用户名和密码
+  - 数据库名称建议：
+    - auth-service：auth_db
+    - fault-tree-editor-service：fta_db
+    - feedback-learning-service：feedback_db
+
+## 注意事项
+- 所有配置信息应避免硬编码在代码中
+- 生产环境中应使用环境变量或配置中心管理敏感信息
+- 定期更新密钥和密码，确保系统安全
+- 测试环境和生产环境使用不同的配置信息
+- 确保RabbitMQ的交换机和队列正确创建
+- 生产环境中应使用持久化存储的数据库，避免使用H2内存数据库
+- **RAG服务启动**：需要同时启动 rag_service.py (RabbitMQ消费者) 和 rag_api.py (HTTP API)
+
+
+
+
+### ❌ 未实现或待完善的功能 1. 工业知识提取
+- ❌ 自动化事件抽取 ：
+  
+  - 现状：依赖 LLM 提示词工程进行事件提取，无专门的命名实体识别（NER）模型
+  - 缺失：没有针对工业文档的专用事件抽取算法（如基于 Transformer 的序列标注模型）
+  - 影响：事件提取准确率无法保证达到≥85% 的指标
+- ❌ 关系抽取与逻辑门识别 ：
+  
+  - 现状：通过 LLM 一次性生成完整故障树结构
+  - 缺失：没有独立的关系抽取模块来识别事件间的因果关系和逻辑门类型
+  - 影响：关系提取准确率无法量化评估
+- ❌ 多模态数据支持 ：
+  
+  - 现状：仅支持文本格式
+  - 缺失：不支持表格、图片等格式的工业数据
+  - 影响：无法充分利用设备手册中的表格数据 2. 故障树生成质量
+- ❌ 结构准确率评估 ：
+  
+  - 现状：无自动评估机制
+  - 缺失：没有与标准故障树对比的评估工具
+  - 影响：无法验证是否达到≥80% 的结构准确率指标
+- ❌ 多文档融合 ：
+  
+  - 现状：支持多文档上传，但融合逻辑简单
+  - 缺失：缺乏文档间知识冲突消解机制
+  - 影响：多文档同时使用时可能产生矛盾信息 3. 逻辑校验与优化
+- ❌ 深度逻辑校验 ：
+  
+  - 现状：基础规则校验（如循环检测）
+  - 缺失：缺乏基于知识图谱的深度逻辑一致性校验
+  - 影响：无法检测复杂的逻辑冲突
+- ❌ 优化建议生成 ：
+  
+  - 现状：基于规则的简单建议
+  - 缺失：没有基于历史反馈数据的智能建议生成
+  - 影响：优化建议质量有限 4. 专家辅助构建
+- ❌ 实时协作编辑 ：
+  
+  - 现状：WebSocket 基础支持
+  - 缺失：多专家同时编辑冲突解决机制
+  - 影响：不支持多专家协同构建场景
+- ❌ 版本管理与回滚 ：
+  
+  - 现状：无版本控制
+  - 缺失：故障树版本历史、diff 对比、回滚功能
+  - 影响：专家修改无法追溯，错误修改无法恢复 5. 反馈学习闭环
+- ❌ 主动学习机制 ：
+  
+  - 现状：被动接收反馈
+  - 缺失：没有主动请求专家标注低置信度节点的机制
+  - 影响：学习效率低
+- ❌ 模型迭代优化 ：
+  
+  - 现状：有优化接口但未实现具体算法
+  - 缺失：没有基于反馈数据的模型微调流程
+  - 影响：AI 生成能力无法持续改进 6. 数据格式支持
+- ❌ 表格解析 ：
+  
+  - 现状：仅支持纯文本
+  - 缺失：Excel、Word 表格解析功能
+  - 影响：无法处理设备手册中的结构化数据
+- ❌ 批量上传支持 ：
+  
+  - 现状：单文件上传
+  - 缺失：批量上传接口
+  - 影响：用户体验不佳

@@ -1,0 +1,11 @@
+FROM openjdk:17-jdk-alpine
+
+WORKDIR /app
+
+COPY . /app
+
+RUN ./mvnw clean package -DskipTests -pl gateway-service -am
+
+EXPOSE 8080
+
+CMD ["java", "-jar", "gateway-service/target/gateway-service-1.0.0.jar"]

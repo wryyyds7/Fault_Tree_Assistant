@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cxyaqcdm.fta.vector.mapper.VectorStoreMapper">
+    <resultMap id="VectorStoreResultMap" type="com.cxyaqcdm.fta.vector.entity.VectorStore">
+        <id property="id" column="id"/>
+        <result property="vectorId" column="vector_id"/>
+        <result property="paragraphId" column="paragraph_id"/>
+        <result property="docId" column="doc_id"/>
+        <result property="vectorData" column="vector_data"/>
+        <result property="vectorDimension" column="vector_dimension"/>
+        <result property="similarityScore" column="similarity_score"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <select id="findById" resultMap="VectorStoreResultMap">
+        SELECT * FROM vector_store WHERE id = #{id}
+    </select>
+
+    <select id="findByVectorId" resultMap="VectorStoreResultMap">
+        SELECT * FROM vector_store WHERE vector_id = #{vectorId}
+    </select>
+
+    <select id="findByParagraphId" resultMap="VectorStoreResultMap">
+        SELECT * FROM vector_store WHERE paragraph_id = #{paragraphId}
+    </select>
+
+    <select id="findByDocId" resultMap="VectorStoreResultMap">
+        SELECT * FROM vector_store WHERE doc_id = #{docId}
+    </select>
+
+    <insert id="insert">
+        INSERT INTO vector_store (vector_id, paragraph_id, doc_id, vector_data, vector_dimension, similarity_score, created_at, updated_at)
+        VALUES (#{vectorId}, #{paragraphId}, #{docId}, #{vectorData}, #{vectorDimension}, #{similarityScore}, #{createdAt}, #{updatedAt})
+    </insert>
+
+    <update id="update">
+        UPDATE vector_store
+        SET vector_data = #{vectorData}, vector_dimension = #{vectorDimension}, 
+            similarity_score = #{similarityScore}, updated_at = #{updatedAt}
+        WHERE vector_id = #{vectorId}
+    </update>
+
+    <delete id="deleteByDocId">
+        DELETE FROM vector_store WHERE doc_id = #{docId}
+    </delete>
+</mapper>

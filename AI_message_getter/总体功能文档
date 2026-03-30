@@ -1,0 +1,89 @@
+本项目为“基于知识的工业设备故障树智能生成与辅助构建系统”，面向高端制造运维场景，旨在通过融合大模型、知识图谱与规则引擎，实现从非结构化工业文档中自动抽取故障逻辑、生成符合FTA（Fault Tree Analysis）标准的故障树，并支持专家可视化交互修正。系统采用 Spring Cloud + Vue3 + Python（AI后端） 三层架构，模块间通信以 RabbitMQ 异步解耦为主、Feign 同步调用为辅，确保高内聚低耦合与可扩展性。
+系统整体模块划分
+gateway-service：API网关，统一入口、鉴权、限流
+auth-service：用户认证与权限管理（RBAC）
+document-ingest-service：工业文档上传、解析、预处理
+knowledge-graph-service：轻量故障知识图谱构建与管理（基于ISO 13379本体）
+rag-generation-service（Python）：RAG增强的大模型初稿生成
+rule-validation-service：故障树逻辑校验与合规检查
+fault-tree-editor-service：故障树版本管理、CRUD、协作编辑状态同步
+feedback-learning-service：专家修正反馈收集与模型优化触发
+common-lib：公共库（Java + Python 双端共享）
+common-lib 公共库设计（核心支撑）
+Java 端（Maven 模块 common-core）
+FaultTreeDTO.java：标准化故障树数据结构（含 eventId, eventType, gateType, children, sourceEvidence 等字段）
+EventTypeEnum：枚举（TOP, INTERMEDIATE, BASIC）
+LogicGateEnum：AND / OR / XOR
+ValidationRuleCode：校验错误码（CYCLE_DETECTED=1001, INVALID_GATE=1002...）
+AmqpConstants.java：RabbitMQ 交换机/队列命名规范（如 EXCHANGE_FAULT_TREE, QUEUE_RAG_GENERATE）
+FeignClientConfig：Feign 超时、重试、压缩配置
+Python 端（pip 包 industrial_fta_common）
+fault_tree_schema.py：Pydantic 模型，与 Java DTO 对齐
+ontology_loader.py：加载 ISO 13379 本体（Turtle/JSON-LD）
+message_utils.py：RabbitMQ 消息序列化/反序列化（JSON + schema validation）
+llm_prompt_templates.py：预定义 Prompt 模板（含图谱引导占位符）
+两套库通过 CI/CD 自动同步字段变更，确保跨语言一致性。
+document-ingest-service（文档摄入服务）
+接收 PDF、DOCX、TXT 等格式设备手册或维修日志，执行 OCR（PDF 图像页）、段落切分、元数据提取。
+该模块对外暴露 POST /api/v1/documents/upload 接口，接收 multipart/form-data 请求，返回文档 ID 与状态：
+{ "docId": "doc_20260316_abc123", "status": "queued", "pageCount": 42 }
+内部将任务投递至 RabbitMQ 队列 queue.document.parse，由后台异步消费者处理。
+完成解析后发布事件到 exchange.document.parsed，携带结构化文本块（含章节、表格、图像描述），供 rag-generation-service 订阅。
+knowledge-graph-service（知识图谱服务）
+基于 Neo4j 构建轻量故障本体图谱，预加载 ISO 13379 标准事件模板，并支持动态扩展。
+该模块对外暴露 POST /api/v1/kg/query-template 接口，接收 JSON：
+{ "topEvent": "电机过热停机", "equipmentType": "induction_motor" }
+返回匹配的标准子结构模板（若存在）：
+{ "templateId": "tmpl_mtr_overheat_v2", "structure": { "event": "...", "gate": "OR", "children": [...] } }
+同时提供 PUT /api/v1/kg/enrich 接口，接收 feedback-learning-service 提交的新因果模式，持久化至图谱。
+内部使用 Spring Data Neo4j，对外不直接暴露图数据库，仅通过 REST 封装。
+rag-generation-service（Python，RAG生成服务）
+监听 RabbitMQ 队列 queue.rag.generate，消息格式：
+{ "taskId": "task_xxx", "topEvent": "液压泵压力不足", "docIds": ["doc_1", "doc_2"], "template": { ... } }
+服务执行以下流程：
+从 document-ingest-service 获取 docId 对应的文本块；
+向量检索（FAISS + BGE-M3）召回相关段落；
+拼接知识图谱模板与检索结果，构造 Prompt；
+调用开源大模型（Qwen-Max via Alibaba Bailian API 或本地 vLLM 部署）；
+解析输出为 FaultTreeDTO（Pydantic），校验基本结构；
+发布结果至 exchange.rag.generated，含 taskId 与生成树。
+该服务不暴露 HTTP 接口，纯事件驱动，确保与 Java 生态解耦。
+rule-validation-service（规则校验服务）
+订阅 exchange.rag.generated 或接收 fault-tree-editor-service 的同步校验请求。
+对外暴露 POST /api/v1/validation/check 接口，接收完整 FaultTreeDTO，返回校验报告：
+{
+"valid": false,
+"errors": [
+{ "code": 1001, "nodeId": "evt_789", "message": "Detected cyclic dependency: evt_123 → evt_456 → evt_123" },
+{ "code": 1003, "nodeId": "evt_101", "message": "Basic event cannot have children" }
+]
+}
+内部规则引擎基于 Drools 编写，规则文件动态加载，支持热更新。校验逻辑包括：
+循环检测（DFS）
+节点类型合法性（底事件无子节点）
+逻辑门连接数合规（AND/OR 至少两个输入）
+本体一致性（事件类型是否在 KG 中定义）
+fault-tree-editor-service（编辑器服务）
+提供故障树全生命周期管理：创建、保存草稿、提交终版、版本对比、协作锁。
+对外暴露以下核心接口：
+POST /api/v1/trees：创建新树，返回 treeId
+GET /api/v1/trees/{treeId}：获取完整树（含 AI 初稿 + 专家修改痕迹）
+PUT /api/v1/trees/{treeId}/nodes：局部更新节点（支持 WebSocket 实时协同）
+POST /api/v1/trees/{treeId}/validate：同步调用 rule-validation-service 并聚合结果
+内部通过 Feign 调用 rule-validation-service，通过 RabbitMQ 发布“树已提交”事件至 exchange.tree.finalized，触发 feedback-learning-service 处理。
+feedback-learning-service（反馈学习服务）
+监听 exchange.tree.finalized，提取专家修正前后的差异（Diff 算法），生成新因果三元组。
+调用 knowledge-graph-service 的 /api/v1/kg/enrich 接口提交新知识。
+同时将高质量修正样本存入向量库，更新 RAG 检索底库。
+该服务定期触发 Python 端微调任务（LoRA），但训练本身不在主流程中，仅记录样本。
+系统通信协议
+异步通信：RabbitMQ，Exchange 类型为 topic，消息体为 JSON，含 traceId 用于链路追踪
+同步通信：Spring Cloud OpenFeign，启用 GZIP 压缩，超时 5s，熔断阈值 3 次失败
+前端通信：Vue3 + Axios，WebSocket 用于协同编辑，RESTful API 遵循 OpenAPI 3.0 规范
+AI 服务集成：Python 服务通过 gRPC 或 REST 与 Java 交互（优先 REST，简化部署）
+部署与安全
+所有服务容器化（Docker），K8s 编排
+敏感操作（如删除、提交）需 JWT + RBAC 鉴权
+文档与故障树数据加密存储（AES-256）
+RabbitMQ 启用 TLS，队列持久化
+此设计覆盖从数据摄入、知识建模、AI生成、逻辑校验到人机协同编辑与知识沉淀的完整闭环，满足赛题对 准确性、规范性、实用性、可扩展性 的全部要求，且具备工业级落地能力。

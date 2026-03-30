@@ -1,0 +1,11 @@
+spring:
+  application:
+    name: feedback-learning-service
+  config:
+    import: optional:nacos:${spring.application.name}.yaml?namespace=fta-namespace&group=DEFAULT_GROUP&extension=yaml
+  cloud:
+    nacos:
+      discovery:
+        server-addr: localhost:8848
+        namespace: fta-namespace
+        group: DEFAULT_GROUP

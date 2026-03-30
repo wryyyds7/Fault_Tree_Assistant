@@ -1,0 +1,11 @@
+FROM openjdk:17-jdk-alpine
+
+WORKDIR /app
+
+COPY . /app
+
+RUN ./mvnw clean package -DskipTests -pl feedback-learning-service -am
+
+EXPOSE 8085
+
+CMD ["java", "-jar", "feedback-learning-service/target/feedback-learning-service-1.0.0.jar"]

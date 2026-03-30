@@ -1,0 +1,10 @@
+D:\bianchenglianxi\project\Fault_Tree_Assistant\backend\auth-service\src\main\java\com\cxyaqcdm\fta\auth\mapper\UserMapper.java
+D:\bianchenglianxi\project\Fault_Tree_Assistant\backend\auth-service\src\main\java\com\cxyaqcdm\fta\auth\controller\AuthController.java
+D:\bianchenglianxi\project\Fault_Tree_Assistant\backend\auth-service\src\main\java\com\cxyaqcdm\fta\auth\dto\LoginResponse.java
+D:\bianchenglianxi\project\Fault_Tree_Assistant\backend\auth-service\src\main\java\com\cxyaqcdm\fta\auth\dto\RegisterRequest.java
+D:\bianchenglianxi\project\Fault_Tree_Assistant\backend\auth-service\src\main\java\com\cxyaqcdm\fta\auth\AuthServiceApplication.java
+D:\bianchenglianxi\project\Fault_Tree_Assistant\backend\auth-service\src\main\java\com\cxyaqcdm\fta\auth\entity\UserEntity.java
+D:\bianchenglianxi\project\Fault_Tree_Assistant\backend\auth-service\src\main\java\com\cxyaqcdm\fta\auth\config\SecurityConfig.java
+D:\bianchenglianxi\project\Fault_Tree_Assistant\backend\auth-service\src\main\java\com\cxyaqcdm\fta\auth\dto\LoginRequest.java
+D:\bianchenglianxi\project\Fault_Tree_Assistant\backend\auth-service\src\main\java\com\cxyaqcdm\fta\auth\service\impl\AuthServiceImpl.java
+D:\bianchenglianxi\project\Fault_Tree_Assistant\backend\auth-service\src\main\java\com\cxyaqcdm\fta\auth\service\AuthService.java

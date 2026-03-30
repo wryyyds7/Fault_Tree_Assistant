@@ -1,0 +1,30 @@
+spring:
+  application:
+    name: document-ingest-service
+  config:
+    import: optional:nacos:${spring.application.name}.yaml?namespace=fta-namespace&group=DEFAULT_GROUP&extension=yaml
+  cloud:
+    nacos:
+      discovery:
+        server-addr: localhost:8848
+        namespace: fta-namespace
+        group: DEFAULT_GROUP
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: guest
+    password: guest
+  servlet:
+    multipart:
+      max-file-size: 100MB
+      max-request-size: 100MB
+
+server:
+  port: 8081
+
+# 文档存储配置
+document:
+  storage:
+    path: ./data/documents
+  ocr:
+    tessdata: ./tessdata

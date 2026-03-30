@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cxyaqcdm.fta.editor.mapper.FaultTreeMapper">
+    <resultMap id="FaultTreeResultMap" type="com.cxyaqcdm.fta.editor.entity.FaultTreeEntity">
+        <id property="id" column="id"/>
+        <result property="name" column="name"/>
+        <result property="topEvent" column="top_event"/>
+        <result property="description" column="description"/>
+        <result property="structure" column="structure"/>
+        <result property="equipmentType" column="equipment_type"/>
+        <result property="creatorId" column="creator_id"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <select id="findById" resultMap="FaultTreeResultMap">
+        SELECT * FROM fault_trees WHERE id = #{id}
+    </select>
+
+    <select id="findAll" resultMap="FaultTreeResultMap">
+        SELECT * FROM fault_trees
+    </select>
+
+    <insert id="insert">
+        INSERT INTO fault_trees (id, name, top_event, description, structure, equipment_type, creator_id, created_at, updated_at)
+        VALUES (#{id}, #{name}, #{topEvent}, #{description}, #{structure}, #{equipmentType}, #{creatorId}, #{createdAt}, #{updatedAt})
+    </insert>
+
+    <update id="update">
+        UPDATE fault_trees
+        SET name = #{name}, top_event = #{topEvent}, description = #{description}, structure = #{structure},
+            equipment_type = #{equipmentType}, updated_at = #{updatedAt}
+        WHERE id = #{id}
+    </update>
+
+    <delete id="delete">
+        DELETE FROM fault_trees WHERE id = #{id}
+    </delete>
+</mapper>

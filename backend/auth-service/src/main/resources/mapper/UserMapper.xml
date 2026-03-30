@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cxyaqcdm.fta.auth.mapper.UserMapper">
+    <resultMap id="UserResultMap" type="com.cxyaqcdm.fta.auth.entity.UserEntity">
+        <id property="id" column="ID"/>
+        <result property="userId" column="USERID"/>
+        <result property="username" column="USERNAME"/>
+        <result property="password" column="PASSWORD"/>
+        <result property="email" column="EMAIL"/>
+        <result property="role" column="ROLE"/>
+        <result property="createdAt" column="CREATED_AT"/>
+    </resultMap>
+
+    <select id="findByUsername" resultMap="UserResultMap">
+        SELECT * FROM users WHERE USERNAME = #{username}
+    </select>
+
+    <select id="findByEmail" resultMap="UserResultMap">
+        SELECT * FROM users WHERE EMAIL = #{email}
+    </select>
+
+    <insert id="insert">
+        INSERT INTO users (ID, USERNAME, PASSWORD, EMAIL, ROLE, CREATED_AT)
+        VALUES (#{id}, #{username}, #{password}, #{email}, #{role}, #{createdAt})
+    </insert>
+</mapper>
