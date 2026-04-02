@@ -14,6 +14,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -33,40 +34,220 @@ public class KnowledgeGraphServiceImpl implements KnowledgeGraphService {
     public Map<String, Object> queryTemplate(String topEvent, String equipmentType) {
         Map<String, Object> result = new HashMap<>();
         try {
-            // 查询匹配的事件
-            List<Event> events = eventRepository.findByEventNameAndEquipmentType(topEvent, equipmentType);
+            log.info("Querying template for topEvent: {}, equipmentType: {}", topEvent, equipmentType);
             
-            if (!events.isEmpty()) {
-                // 构建模板结构
-                Map<String, Object> structure = new HashMap<>();
-                structure.put("event", topEvent);
-                structure.put("gate", "OR"); // 默认使用OR门
-                structure.put("children", new ArrayList<>());
-                
-                result.put("templateId", "tmpl_" + UUID.randomUUID().toString().replace("-", ""));
-                result.put("structure", structure);
-            } else {
-                // 返回默认模板
-                Map<String, Object> structure = new HashMap<>();
-                structure.put("event", topEvent);
-                structure.put("gate", "OR");
-                structure.put("children", new ArrayList<>());
-                
-                result.put("templateId", "tmpl_default_" + equipmentType);
-                result.put("structure", structure);
+            List<TemplateMatchResult> matches = new ArrayList<>();
+            
+            List<Event> exactMatches = eventRepository.findByEventNameAndEquipmentType(topEvent, equipmentType);
+            if (!exactMatches.isEmpty()) {
+                for (Event event : exactMatches) {
+                    matches.add(new TemplateMatchResult(event, 1.0, "EXACT_MATCH"));
+                }
             }
-        } catch (Exception e) {
-            log.error("Failed to query template: {}", e.getMessage());
-            // 返回默认模板
-            Map<String, Object> structure = new HashMap<>();
-            structure.put("event", topEvent);
-            structure.put("gate", "OR");
-            structure.put("children", new ArrayList<>());
             
-            result.put("templateId", "tmpl_default");
-            result.put("structure", structure);
+            if (matches.isEmpty()) {
+                List<TemplateMatchResult> fuzzyMatches = findFuzzyMatches(topEvent, equipmentType);
+                matches.addAll(fuzzyMatches);
+            }
+            
+            if (matches.isEmpty()) {
+                List<Event> equipmentTypeMatches = eventRepository.findByEquipmentType(equipmentType);
+                for (Event event : equipmentTypeMatches) {
+                    double score = calculateSimilarity(topEvent, event.getName());
+                    if (score > 0.3) {
+                        matches.add(new TemplateMatchResult(event, score, "EQUIPMENT_TYPE_MATCH"));
+                    }
+                }
+            }
+            
+            matches.sort((a, b) -> Double.compare(b.score, a.score));
+            
+            if (!matches.isEmpty()) {
+                TemplateMatchResult bestMatch = matches.get(0);
+                log.info("Best template match found: {}, score: {}, matchType: {}", 
+                    bestMatch.event.getName(), bestMatch.score, bestMatch.matchType);
+                
+                Map<String, Object> structure = buildTemplateStructure(bestMatch.event, topEvent);
+                result.put("templateId", "tmpl_" + bestMatch.event.getId());
+                result.put("structure", structure);
+                result.put("matchScore", bestMatch.score);
+                result.put("matchType", bestMatch.matchType);
+                result.put("alternativeMatches", matches.stream()
+                    .skip(1)
+                    .limit(3)
+                    .map(m -> {
+                        Map<String, Object> alt = new HashMap<>();
+                        alt.put("eventName", m.event.getName());
+                        alt.put("score", m.score);
+                        alt.put("matchType", m.matchType);
+                        return alt;
+                    })
+                    .collect(Collectors.toList()));
+            } else {
+                log.info("No template matches found, using default template for: {}", topEvent);
+                result.put("templateId", "tmpl_default_" + UUID.randomUUID().toString().replace("-", ""));
+                result.put("structure", buildDefaultStructure(topEvent, equipmentType));
+                result.put("matchScore", 0.0);
+                result.put("matchType", "DEFAULT_TEMPLATE");
+            }
+            
+        } catch (Exception e) {
+            log.error("Failed to query template: {}", e.getMessage(), e);
+            result.put("templateId", "tmpl_default_error");
+            result.put("structure", buildDefaultStructure(topEvent, equipmentType));
+            result.put("matchScore", 0.0);
+            result.put("matchType", "ERROR_FALLBACK");
         }
         return result;
+    }
+    
+    private List<TemplateMatchResult> findFuzzyMatches(String topEvent, String equipmentType) {
+        List<TemplateMatchResult> results = new ArrayList<>();
+        List<Event> allEvents = eventRepository.findAll();
+        
+        for (Event event : allEvents) {
+            double nameSim = calculateSimilarity(topEvent, event.getName());
+            double equipSim = (equipmentType != null && event.getEquipmentType() != null) 
+                ? calculateSimilarity(equipmentType, event.getEquipmentType()) 
+                : 0.5;
+            
+            double totalScore = nameSim * 0.7 + equipSim * 0.3;
+            
+            if (totalScore > 0.5) {
+                results.add(new TemplateMatchResult(event, totalScore, "FUZZY_MATCH"));
+            }
+        }
+        
+        return results;
+    }
+    
+    private double calculateSimilarity(String s1, String s2) {
+        if (s1 == null || s2 == null) {
+            return 0.0;
+        }
+        
+        s1 = s1.toLowerCase().trim();
+        s2 = s2.toLowerCase().trim();
+        
+        if (s1.equals(s2)) {
+            return 1.0;
+        }
+        
+        if (s1.contains(s2) || s2.contains(s1)) {
+            return 0.8;
+        }
+        
+        int maxLength = Math.max(s1.length(), s2.length());
+        int distance = levenshteinDistance(s1, s2);
+        
+        return 1.0 - (double) distance / maxLength;
+    }
+    
+    private int levenshteinDistance(String s1, String s2) {
+        int[][] dp = new int[s1.length() + 1][s2.length() + 1];
+        
+        for (int i = 0; i <= s1.length(); i++) {
+            dp[i][0] = i;
+        }
+        for (int j = 0; j <= s2.length(); j++) {
+            dp[0][j] = j;
+        }
+        
+        for (int i = 1; i <= s1.length(); i++) {
+            for (int j = 1; j <= s2.length(); j++) {
+                int cost = s1.charAt(i - 1) == s2.charAt(j - 1) ? 0 : 1;
+                dp[i][j] = Math.min(
+                    Math.min(dp[i - 1][j] + 1, dp[i][j - 1] + 1),
+                    dp[i - 1][j - 1] + cost
+                );
+            }
+        }
+        
+        return dp[s1.length()][s2.length()];
+    }
+    
+    private Map<String, Object> buildTemplateStructure(Event event, String targetEvent) {
+        Map<String, Object> structure = new HashMap<>();
+        structure.put("event", targetEvent);
+        structure.put("gate", "OR");
+        structure.put("children", new ArrayList<>());
+        
+        try {
+            String cypher = "MATCH (e:Event {id: $eventId})-[:CAUSES*1..3]->(child:Event) " +
+                           "RETURN child, r.gateType " +
+                           "ORDER BY length(r)";
+            
+            Map<String, Object> params = new HashMap<>();
+            params.put("eventId", event.getId());
+            
+            List<Map<String, Object>> queryResults = new ArrayList<>(neo4jClient.query(cypher)
+                .bindAll(params)
+                .fetch()
+                .all());
+            
+            for (Map<String, Object> row : queryResults) {
+                Map<String, Object> child = new HashMap<>();
+                child.put("event", ((Event) row.get("child")).getName());
+                child.put("gate", row.get("gateType") != null ? row.get("gateType") : "OR");
+                child.put("children", new ArrayList<>());
+                ((List<Object>) structure.get("children")).add(child);
+            }
+            
+            if (((List<?>) structure.get("children")).isEmpty()) {
+                structure.put("children", getDefaultChildren(event.getEquipmentType()));
+            }
+            
+        } catch (Exception e) {
+            log.warn("Failed to build template structure from graph, using defaults: {}", e.getMessage());
+            structure.put("children", getDefaultChildren(event.getEquipmentType()));
+        }
+        
+        return structure;
+    }
+    
+    private Map<String, Object> buildDefaultStructure(String topEvent, String equipmentType) {
+        Map<String, Object> structure = new HashMap<>();
+        structure.put("event", topEvent);
+        structure.put("gate", "OR");
+        structure.put("children", getDefaultChildren(equipmentType));
+        return structure;
+    }
+    
+    private List<Map<String, Object>> getDefaultChildren(String equipmentType) {
+        List<Map<String, Object>> children = new ArrayList<>();
+        
+        Map<String, Object> cat1 = new HashMap<>();
+        cat1.put("event", "电源/电气问题");
+        cat1.put("gate", "OR");
+        cat1.put("children", new ArrayList<>());
+        
+        Map<String, Object> cat2 = new HashMap<>();
+        cat2.put("event", "机械/结构问题");
+        cat2.put("gate", "OR");
+        cat2.put("children", new ArrayList<>());
+        
+        Map<String, Object> cat3 = new HashMap<>();
+        cat3.put("event", "环境/操作问题");
+        cat3.put("gate", "OR");
+        cat3.put("children", new ArrayList<>());
+        
+        children.add(cat1);
+        children.add(cat2);
+        children.add(cat3);
+        
+        return children;
+    }
+    
+    private static class TemplateMatchResult {
+        Event event;
+        double score;
+        String matchType;
+        
+        TemplateMatchResult(Event event, double score, String matchType) {
+            this.event = event;
+            this.score = score;
+            this.matchType = matchType;
+        }
     }
 
     @Override

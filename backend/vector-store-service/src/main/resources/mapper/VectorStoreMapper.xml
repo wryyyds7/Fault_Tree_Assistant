@@ -10,7 +10,9 @@
         <result property="docId" column="doc_id"/>
         <result property="vectorData" column="vector_data"/>
         <result property="vectorDimension" column="vector_dimension"/>
+        <result property="embeddingModel" column="embedding_model"/>
         <result property="similarityScore" column="similarity_score"/>
+        <result property="createdBy" column="created_by"/>
         <result property="createdAt" column="created_at"/>
         <result property="updatedAt" column="updated_at"/>
     </resultMap>
@@ -31,14 +33,18 @@
         SELECT * FROM vector_store WHERE doc_id = #{docId}
     </select>
 
+    <select id="findByEmbeddingModel" resultMap="VectorStoreResultMap">
+        SELECT * FROM vector_store WHERE embedding_model = #{embeddingModel}
+    </select>
+
     <insert id="insert">
-        INSERT INTO vector_store (vector_id, paragraph_id, doc_id, vector_data, vector_dimension, similarity_score, created_at, updated_at)
-        VALUES (#{vectorId}, #{paragraphId}, #{docId}, #{vectorData}, #{vectorDimension}, #{similarityScore}, #{createdAt}, #{updatedAt})
+        INSERT INTO vector_store (vector_id, paragraph_id, doc_id, vector_data, vector_dimension, embedding_model, similarity_score, created_by, created_at, updated_at)
+        VALUES (#{vectorId}, #{paragraphId}, #{docId}, #{vectorData}, #{vectorDimension}, #{embeddingModel}, #{similarityScore}, #{createdBy}, #{createdAt}, #{updatedAt})
     </insert>
 
     <update id="update">
         UPDATE vector_store
-        SET vector_data = #{vectorData}, vector_dimension = #{vectorDimension}, 
+        SET vector_data = #{vectorData}, vector_dimension = #{vectorDimension}, embedding_model = #{embeddingModel},
             similarity_score = #{similarityScore}, updated_at = #{updatedAt}
         WHERE vector_id = #{vectorId}
     </update>

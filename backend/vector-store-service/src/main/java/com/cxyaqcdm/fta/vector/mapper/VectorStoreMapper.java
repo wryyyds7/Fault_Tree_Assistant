@@ -11,6 +11,7 @@ public interface VectorStoreMapper {
     VectorStore findByVectorId(String vectorId);
     VectorStore findByParagraphId(String paragraphId);
     List<VectorStore> findByDocId(String docId);
+    List<VectorStore> findByEmbeddingModel(String embeddingModel);
     void insert(VectorStore vectorStore);
     void update(VectorStore vectorStore);
     void deleteByDocId(String docId);

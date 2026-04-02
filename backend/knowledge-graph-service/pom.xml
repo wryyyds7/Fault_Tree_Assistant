@@ -21,6 +21,20 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-neo4j</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.neo4j</groupId>
+                    <artifactId>neo4j-ogm-core</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.neo4j</groupId>
+                    <artifactId>neo4j-ogm-api</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.neo4j.driver</groupId>
+                    <artifactId>neo4j-java-driver</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>com.xuelangyun.fta</groupId>
@@ -35,17 +49,38 @@
                     <groupId>mysql</groupId>
                     <artifactId>mysql-connector-j</artifactId>
                 </exclusion>
+                <exclusion>
+                    <groupId>org.neo4j</groupId>
+                    <artifactId>neo4j-ogm-core</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.neo4j</groupId>
+                    <artifactId>neo4j-ogm-api</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.neo4j.driver</groupId>
+                    <artifactId>neo4j-java-driver</artifactId>
+                </exclusion>
             </exclusions>
         </dependency>
-        <dependency>
-            <groupId>org.neo4j</groupId>
-            <artifactId>neo4j-ogm-core</artifactId>
-            <version>4.0.5</version>
-        </dependency>
+        <!-- Spring Data Neo4j (SDN 7+) 已经包含 neo4j-java-driver 依赖，不需要 neo4j-ogm-core -->
+        <!-- 旧版 OGM 会与 Spring Data Neo4j 冲突，导致 AuthTokenManager 未找到的泛型解析错误 -->
+        <!-- 这里显式排除常见旧依赖，确保只使用 5.24.0 -->
         <dependency>
             <groupId>org.neo4j.driver</groupId>
             <artifactId>neo4j-java-driver</artifactId>
-            <version>5.21.0</version>
+            <version>5.24.0</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.neo4j</groupId>
+                    <artifactId>neo4j-ogm-core</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.neo4j</groupId>
+                    <artifactId>neo4j-ogm-api</artifactId>
+                </exclusion>
+
+            </exclusions>
         </dependency>
     </dependencies>
 

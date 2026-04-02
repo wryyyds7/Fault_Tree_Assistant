@@ -10,6 +10,8 @@ public interface DocumentMetadataMapper {
     DocumentMetadata findById(Long id);
     DocumentMetadata findByDocId(String docId);
     List<DocumentMetadata> findAll();
+    List<DocumentMetadata> findByEquipmentType(String equipmentType);
+    List<String> findDistinctEquipmentTypes();
     void insert(DocumentMetadata documentMetadata);
     void update(DocumentMetadata documentMetadata);
     void delete(String docId);

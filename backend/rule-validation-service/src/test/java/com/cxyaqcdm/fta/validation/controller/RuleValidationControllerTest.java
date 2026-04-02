@@ -30,12 +30,11 @@ public class RuleValidationControllerTest {
     public void testValidateFaultTree() {
         // Arrange
         FaultTreeDTO faultTreeDTO = new FaultTreeDTO();
-        faultTreeDTO.setId("1");
-        faultTreeDTO.setName("Test Fault Tree");
+        faultTreeDTO.setEventId("1");
+        faultTreeDTO.setEventName("Test Fault Tree");
 
         ValidationResultDTO validationResultDTO = new ValidationResultDTO();
         validationResultDTO.setValid(true);
-        validationResultDTO.setMessage("Validation passed");
 
         when(ruleValidationService.validateFaultTree(faultTreeDTO)).thenReturn(validationResultDTO);
 
@@ -45,6 +44,5 @@ public class RuleValidationControllerTest {
         // Assert
         assertEquals(200, response.getStatusCodeValue());
         assertEquals(true, response.getBody().isValid());
-        assertEquals("Validation passed", response.getBody().getMessage());
     }
 }

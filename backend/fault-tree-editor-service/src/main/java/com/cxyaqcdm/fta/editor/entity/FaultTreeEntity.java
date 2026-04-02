@@ -10,17 +10,26 @@ public class FaultTreeEntity {
     private String name;
     private String description;
     private String equipmentType;
+    private String topEvent;
     private String treeData;
+    private Integer version;
+    private String validationStatus;
+    private String validationMessage;
+    private String sourceDocIds;
+    private String sourceDetail;
+    private String publishStatus;
+    private String fusionStatistics;
+    private String generatedBy;
+    private String templateId;
     private String createdBy;
     private String updatedBy;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
-    
+
     public void setCreatedAt() {
         this.createdAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
     }
-    
+
     public void setUpdatedAt() {
         this.updatedAt = LocalDateTime.now();
     }

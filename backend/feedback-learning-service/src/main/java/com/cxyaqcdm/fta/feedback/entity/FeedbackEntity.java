@@ -9,14 +9,21 @@ public class FeedbackEntity {
     private String feedbackId;
     private String treeId;
     private String userId;
-    private Integer rating; // 1-5星
+    private String feedbackType;
+    private Integer rating;
+    private String content;
     private String comments;
+    private String suggestions;
     private String suggestedChanges;
     private Double accuracyScore;
     private Double completenessScore;
     private Double clarityScore;
+    private String status;
+    private String processedBy;
+    private LocalDateTime processedAt;
+    private Integer appliedToModel;
     private LocalDateTime createdAt;
-    
+
     public void setCreatedAt() {
         this.createdAt = LocalDateTime.now();
     }

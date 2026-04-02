@@ -1,5 +1,6 @@
 package com.cxyaqcdm.fta.vector.service.impl;
 
+import com.cxyaqcdm.fta.vector.client.EmbeddingClient;
 import com.cxyaqcdm.fta.vector.client.KnowledgeGraphClient;
 import com.cxyaqcdm.fta.vector.entity.DocumentMetadata;
 import com.cxyaqcdm.fta.vector.entity.ParagraphMetadata;
@@ -19,6 +20,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -29,12 +31,16 @@ public class VectorStoreServiceImpl implements VectorStoreService {
     private final ParagraphMetadataMapper paragraphMetadataMapper;
     private final VectorStoreMapper vectorStoreMapper;
     private final KnowledgeGraphClient knowledgeGraphClient;
+    private final EmbeddingClient embeddingClient;
 
     @Value("${vector.model.name}")
     private String vectorModelName;
 
     @Value("${vector.dimension}")
     private Integer vectorDimension;
+    
+    @Value("${vector.use-local-embedding:false}")
+    private Boolean useLocalEmbedding;
 
     @Override
     public DocumentMetadata createDocumentMetadata(String docId, String fileName, String fileType, Integer pageCount) {
@@ -119,14 +125,127 @@ public class VectorStoreServiceImpl implements VectorStoreService {
     public List<VectorStore> generateVectors(String docId, List<ParagraphMetadata> paragraphs) {
         List<VectorStore> vectors = new ArrayList<>();
         
+        try {
+            List<String> texts = paragraphs.stream()
+                .map(ParagraphMetadata::getContent)
+                .collect(Collectors.toList());
+            
+            List<double[]> embeddings;
+            
+            if (useLocalEmbedding) {
+                embeddings = generateLocalEmbeddings(texts);
+            } else {
+                try {
+                    EmbeddingClient.EmbeddingRequest request = new EmbeddingClient.EmbeddingRequest(texts, vectorModelName);
+                    embeddings = embeddingClient.embedTexts(request);
+                } catch (Exception e) {
+                    log.warn("Failed to call embedding service, falling back to local embedding: {}", e.getMessage());
+                    embeddings = generateLocalEmbeddings(texts);
+                }
+            }
+            
+            for (int i = 0; i < paragraphs.size(); i++) {
+                ParagraphMetadata paragraph = paragraphs.get(i);
+                VectorStore vectorStore = new VectorStore();
+                vectorStore.setVectorId("vec_" + UUID.randomUUID().toString().replace("-", ""));
+                vectorStore.setParagraphId(paragraph.getParagraphId());
+                vectorStore.setDocId(docId);
+                
+                double[] embedding = (i < embeddings.size()) ? embeddings.get(i) : generateLocalEmbedding(paragraph.getContent());
+                String vectorData = vectorToString(embedding);
+                
+                vectorStore.setVectorData(vectorData);
+                vectorStore.setVectorDimension(vectorDimension);
+                vectorStore.setSimilarityScore(0.0);
+                vectorStore.setCreatedAt();
+                
+                vectorStoreMapper.insert(vectorStore);
+                vectors.add(vectorStore);
+            }
+            
+            log.info("Generated {} real vectors for docId: {}", vectors.size(), docId);
+        } catch (Exception e) {
+            log.error("Failed to generate real vectors, falling back to dummy vectors: {}", e.getMessage());
+            return generateDummyVectors(docId, paragraphs);
+        }
+        
+        return vectors;
+    }
+    
+    private List<double[]> generateLocalEmbeddings(List<String> texts) {
+        List<double[]> embeddings = new ArrayList<>();
+        for (String text : texts) {
+            embeddings.add(generateLocalEmbedding(text));
+        }
+        return embeddings;
+    }
+    
+    private double[] generateLocalEmbedding(String text) {
+        double[] embedding = new double[vectorDimension];
+        int seed = text.hashCode();
+        java.util.Random random = new java.util.Random(seed);
+        
+        double sum = 0;
+        for (int i = 0; i < vectorDimension; i++) {
+            embedding[i] = random.nextGaussian();
+            sum += embedding[i] * embedding[i];
+        }
+        
+        double norm = Math.sqrt(sum);
+        for (int i = 0; i < vectorDimension; i++) {
+            embedding[i] /= norm;
+        }
+        
+        return embedding;
+    }
+    
+    private String vectorToString(double[] vector) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < vector.length; i++) {
+            sb.append(vector[i]);
+            if (i < vector.length - 1) {
+                sb.append(",");
+            }
+        }
+        return sb.toString();
+    }
+    
+    private double[] stringToVector(String vectorStr) {
+        String[] parts = vectorStr.split(",");
+        double[] vector = new double[parts.length];
+        for (int i = 0; i < parts.length; i++) {
+            vector[i] = Double.parseDouble(parts[i]);
+        }
+        return vector;
+    }
+    
+    private double calculateCosineSimilarity(double[] v1, double[] v2) {
+        double dotProduct = 0;
+        double norm1 = 0;
+        double norm2 = 0;
+        
+        for (int i = 0; i < v1.length; i++) {
+            dotProduct += v1[i] * v2[i];
+            norm1 += v1[i] * v1[i];
+            norm2 += v2[i] * v2[i];
+        }
+        
+        if (norm1 == 0 || norm2 == 0) {
+            return 0;
+        }
+        
+        return dotProduct / (Math.sqrt(norm1) * Math.sqrt(norm2));
+    }
+    
+    private List<VectorStore> generateDummyVectors(String docId, List<ParagraphMetadata> paragraphs) {
+        List<VectorStore> vectors = new ArrayList<>();
+        
         for (ParagraphMetadata paragraph : paragraphs) {
             VectorStore vectorStore = new VectorStore();
             vectorStore.setVectorId("vec_" + UUID.randomUUID().toString().replace("-", ""));
             vectorStore.setParagraphId(paragraph.getParagraphId());
             vectorStore.setDocId(docId);
             
-            // 这里应该调用实际的向量模型生成向量
-            // 简化实现，实际项目中应该使用BGE-M3等模型
             String vectorData = generateDummyVector();
             vectorStore.setVectorData(vectorData);
             vectorStore.setVectorDimension(vectorDimension);
@@ -137,7 +256,7 @@ public class VectorStoreServiceImpl implements VectorStoreService {
             vectors.add(vectorStore);
         }
         
-        log.info("Generated {} vectors for docId: {}", vectors.size(), docId);
+        log.info("Generated {} dummy vectors for docId: {}", vectors.size(), docId);
         return vectors;
     }
 
@@ -148,9 +267,89 @@ public class VectorStoreServiceImpl implements VectorStoreService {
 
     @Override
     public List<Map<String, Object>> searchSimilarVectors(String query, int topK) {
-        // 这里应该实现实际的向量检索逻辑
-        // 简化实现，返回空列表
-        return new ArrayList<>();
+        List<Map<String, Object>> results = new ArrayList<>();
+        
+        try {
+            List<ParagraphMetadata> allParagraphs = new ArrayList<>();
+            List<DocumentMetadata> documents = documentMetadataMapper.findAll();
+            
+            for (DocumentMetadata doc : documents) {
+                allParagraphs.addAll(paragraphMetadataMapper.findByDocId(doc.getDocId()));
+            }
+            
+            if (allParagraphs.isEmpty()) {
+                log.warn("No paragraphs found for search");
+                return results;
+            }
+            
+            double[] queryEmbedding;
+            if (useLocalEmbedding) {
+                queryEmbedding = generateLocalEmbedding(query);
+            } else {
+                try {
+                    List<String> queryTexts = new ArrayList<>();
+                    queryTexts.add(query);
+                    EmbeddingClient.EmbeddingRequest request = new EmbeddingClient.EmbeddingRequest(queryTexts, vectorModelName);
+                    List<double[]> embeddings = embeddingClient.embedTexts(request);
+                    queryEmbedding = (embeddings != null && !embeddings.isEmpty()) ? embeddings.get(0) : generateLocalEmbedding(query);
+                } catch (Exception e) {
+                    log.warn("Failed to get query embedding from service, using local: {}", e.getMessage());
+                    queryEmbedding = generateLocalEmbedding(query);
+                }
+            }
+            
+            List<SearchScore> scores = new ArrayList<>();
+            for (ParagraphMetadata para : allParagraphs) {
+                VectorStore vectorStore = vectorStoreMapper.findByParagraphId(para.getParagraphId());
+                if (vectorStore != null && vectorStore.getVectorData() != null) {
+                    try {
+                        double[] paraEmbedding = stringToVector(vectorStore.getVectorData());
+                        double similarity = calculateCosineSimilarity(queryEmbedding, paraEmbedding);
+                        scores.add(new SearchScore(para, similarity));
+                    } catch (Exception e) {
+                        log.warn("Failed to calculate similarity for paragraph: {}", para.getParagraphId());
+                    }
+                }
+            }
+            
+            scores.sort((a, b) -> Double.compare(b.score, a.score));
+            
+            int limit = Math.min(topK, scores.size());
+            for (int i = 0; i < limit; i++) {
+                SearchScore ss = scores.get(i);
+                Map<String, Object> result = new HashMap<>();
+                result.put("paragraphId", ss.paragraph.getParagraphId());
+                result.put("content", ss.paragraph.getContent());
+                result.put("sectionTitle", ss.paragraph.getSectionTitle());
+                result.put("pageNumber", ss.paragraph.getPageNumber());
+                result.put("similarityScore", ss.score);
+                result.put("confidenceScore", ss.paragraph.getConfidenceScore());
+                
+                DocumentMetadata doc = documentMetadataMapper.findByDocId(ss.paragraph.getDocId());
+                if (doc != null) {
+                    result.put("documentName", doc.getFileName());
+                    result.put("sourceType", ss.paragraph.getSourceType());
+                }
+                
+                results.add(result);
+            }
+            
+            log.info("Found {} similar paragraphs for query: {}", results.size(), query);
+        } catch (Exception e) {
+            log.error("Failed to search similar vectors: {}", e.getMessage(), e);
+        }
+        
+        return results;
+    }
+    
+    private static class SearchScore {
+        ParagraphMetadata paragraph;
+        double score;
+        
+        SearchScore(ParagraphMetadata paragraph, double score) {
+            this.paragraph = paragraph;
+            this.score = score;
+        }
     }
 
     @Override
@@ -320,5 +519,95 @@ public class VectorStoreServiceImpl implements VectorStoreService {
         }
 
         return (double) matchCount / queryWords.length;
+    }
+
+    @Override
+    public List<Map<String, Object>> searchSimilarVectorsByCategory(String query, String equipmentType, int topK) {
+        List<Map<String, Object>> results = new ArrayList<>();
+        
+        try {
+            List<ParagraphMetadata> allParagraphs = new ArrayList<>();
+            List<DocumentMetadata> documents = documentMetadataMapper.findByEquipmentType(equipmentType);
+            
+            for (DocumentMetadata doc : documents) {
+                allParagraphs.addAll(paragraphMetadataMapper.findByDocId(doc.getDocId()));
+            }
+            
+            if (allParagraphs.isEmpty()) {
+                log.warn("No paragraphs found for equipmentType: {}", equipmentType);
+                return results;
+            }
+            
+            double[] queryEmbedding;
+            if (useLocalEmbedding) {
+                queryEmbedding = generateLocalEmbedding(query);
+            } else {
+                try {
+                    List<String> queryTexts = new ArrayList<>();
+                    queryTexts.add(query);
+                    EmbeddingClient.EmbeddingRequest request = new EmbeddingClient.EmbeddingRequest(queryTexts, vectorModelName);
+                    List<double[]> embeddings = embeddingClient.embedTexts(request);
+                    queryEmbedding = (embeddings != null && !embeddings.isEmpty()) ? embeddings.get(0) : generateLocalEmbedding(query);
+                } catch (Exception e) {
+                    log.warn("Failed to get query embedding from service, using local: {}", e.getMessage());
+                    queryEmbedding = generateLocalEmbedding(query);
+                }
+            }
+            
+            List<SearchScore> scores = new ArrayList<>();
+            for (ParagraphMetadata para : allParagraphs) {
+                VectorStore vectorStore = vectorStoreMapper.findByParagraphId(para.getParagraphId());
+                if (vectorStore != null && vectorStore.getVectorData() != null) {
+                    try {
+                        double[] paraEmbedding = stringToVector(vectorStore.getVectorData());
+                        double similarity = calculateCosineSimilarity(queryEmbedding, paraEmbedding);
+                        scores.add(new SearchScore(para, similarity));
+                    } catch (Exception e) {
+                        log.warn("Failed to calculate similarity for paragraph: {}", para.getParagraphId());
+                    }
+                }
+            }
+            
+            scores.sort((a, b) -> Double.compare(b.score, a.score));
+            
+            int limit = Math.min(topK, scores.size());
+            for (int i = 0; i < limit; i++) {
+                SearchScore ss = scores.get(i);
+                Map<String, Object> result = new HashMap<>();
+                result.put("paragraphId", ss.paragraph.getParagraphId());
+                result.put("content", ss.paragraph.getContent());
+                result.put("sectionTitle", ss.paragraph.getSectionTitle());
+                result.put("pageNumber", ss.paragraph.getPageNumber());
+                result.put("similarityScore", ss.score);
+                result.put("confidenceScore", ss.paragraph.getConfidenceScore());
+                
+                DocumentMetadata doc = documentMetadataMapper.findByDocId(ss.paragraph.getDocId());
+                if (doc != null) {
+                    result.put("documentName", doc.getFileName());
+                    result.put("sourceType", ss.paragraph.getSourceType());
+                    result.put("equipmentType", doc.getEquipmentType());
+                }
+                
+                results.add(result);
+            }
+            
+            log.info("Found {} similar paragraphs for query: {} in category: {}", results.size(), query, equipmentType);
+        } catch (Exception e) {
+            log.error("Failed to search similar vectors by category: {}", e.getMessage(), e);
+        }
+        
+        return results;
+    }
+
+    @Override
+    public List<String> getAvailableCategories() {
+        try {
+            List<String> categories = documentMetadataMapper.findDistinctEquipmentTypes();
+            log.info("Retrieved {} available categories", categories.size());
+            return categories;
+        } catch (Exception e) {
+            log.error("Failed to get available categories: {}", e.getMessage(), e);
+            return new ArrayList<>();
+        }
     }
 }

@@ -9,6 +9,7 @@
         <module name="auth-service" />
         <module name="document-ingest-service" />
         <module name="gateway-service" />
+        <module name="vector-store-service" />
         <module name="fault-tree-editor-service" />
         <module name="rule-validation-service" />
         <module name="feedback-learning-service" />

@@ -132,4 +132,21 @@ public class VectorStoreController {
         List<Map<String, Object>> results = vectorStoreService.searchWithEvidence(query, topK);
         return ResponseEntity.ok(results);
     }
+
+    // 分类相关接口
+    @PostMapping("/search-by-category")
+    public ResponseEntity<List<Map<String, Object>>> searchSimilarVectorsByCategory(@RequestBody Map<String, Object> request) {
+        String query = (String) request.get("query");
+        String equipmentType = (String) request.get("equipmentType");
+        int topK = (int) request.getOrDefault("topK", 5);
+        
+        List<Map<String, Object>> results = vectorStoreService.searchSimilarVectorsByCategory(query, equipmentType, topK);
+        return ResponseEntity.ok(results);
+    }
+
+    @GetMapping("/categories")
+    public ResponseEntity<List<String>> getAvailableCategories() {
+        List<String> categories = vectorStoreService.getAvailableCategories();
+        return ResponseEntity.ok(categories);
+    }
 }

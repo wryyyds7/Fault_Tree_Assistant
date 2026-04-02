@@ -5,16 +5,31 @@
 <mapper namespace="com.cxyaqcdm.fta.feedback.mapper.FeedbackMapper">
     <resultMap id="FeedbackResultMap" type="com.cxyaqcdm.fta.feedback.entity.FeedbackEntity">
         <id property="id" column="id"/>
+        <result property="feedbackId" column="feedback_id"/>
         <result property="treeId" column="tree_id"/>
         <result property="userId" column="user_id"/>
         <result property="feedbackType" column="feedback_type"/>
+        <result property="rating" column="rating"/>
         <result property="content" column="content"/>
+        <result property="comments" column="comments"/>
         <result property="suggestions" column="suggestions"/>
+        <result property="suggestedChanges" column="suggested_changes"/>
+        <result property="accuracyScore" column="accuracy_score"/>
+        <result property="completenessScore" column="completeness_score"/>
+        <result property="clarityScore" column="clarity_score"/>
+        <result property="status" column="status"/>
+        <result property="processedBy" column="processed_by"/>
+        <result property="processedAt" column="processed_at"/>
+        <result property="appliedToModel" column="applied_to_model"/>
         <result property="createdAt" column="created_at"/>
     </resultMap>
 
     <select id="findById" resultMap="FeedbackResultMap">
         SELECT * FROM feedback WHERE id = #{id}
+    </select>
+
+    <select id="findByFeedbackId" resultMap="FeedbackResultMap">
+        SELECT * FROM feedback WHERE feedback_id = #{feedbackId}
     </select>
 
     <select id="findByTreeId" resultMap="FeedbackResultMap">
@@ -25,16 +40,52 @@
         SELECT * FROM feedback WHERE user_id = #{userId}
     </select>
 
+    <select id="findByFeedbackType" resultMap="FeedbackResultMap">
+        SELECT * FROM feedback WHERE feedback_type = #{feedbackType}
+    </select>
+
+    <select id="findByStatus" resultMap="FeedbackResultMap">
+        SELECT * FROM feedback WHERE status = #{status}
+    </select>
+
     <select id="findAll" resultMap="FeedbackResultMap">
         SELECT * FROM feedback
     </select>
 
-    <select id="findTopNByOrderByCreatedAtDesc" resultMap="FeedbackResultMap">
-        SELECT * FROM feedback ORDER BY created_at DESC LIMIT #{limit}
+    <select id="findTopNByOrderByCreatedAtDesc" resultMap="FeedbackResultMap" limit="#{limit}">
+        SELECT * FROM feedback ORDER BY created_at DESC
     </select>
 
     <insert id="insert">
-        INSERT INTO feedback (id, tree_id, user_id, feedback_type, content, suggestions, created_at)
-        VALUES (#{id}, #{treeId}, #{userId}, #{feedbackType}, #{content}, #{suggestions}, #{createdAt})
+        INSERT INTO feedback (feedback_id, tree_id, user_id, feedback_type, rating, content, 
+            comments, suggestions, suggested_changes, accuracy_score, completeness_score, 
+            clarity_score, status, processed_by, processed_at, applied_to_model, created_at)
+        VALUES (#{feedbackId}, #{treeId}, #{userId}, #{feedbackType}, #{rating}, #{content},
+            #{comments}, #{suggestions}, #{suggestedChanges}, #{accuracyScore}, #{completenessScore},
+            #{clarityScore}, #{status}, #{processedBy}, #{processedAt}, #{appliedToModel}, #{createdAt})
     </insert>
+
+    <update id="update">
+        UPDATE feedback
+        SET rating = #{rating}, content = #{content}, comments = #{comments}, 
+            suggestions = #{suggestions}, suggested_changes = #{suggestedChanges},
+            accuracy_score = #{accuracyScore}, completeness_score = #{completenessScore},
+            clarity_score = #{clarityScore}, status = #{status}, processed_by = #{processedBy},
+            processed_at = #{processedAt}, applied_to_model = #{appliedToModel}
+        WHERE feedback_id = #{feedbackId}
+    </update>
+
+    <update id="updateStatus">
+        UPDATE feedback
+        SET status = #{status}, processed_by = #{processedBy}, processed_at = #{processedAt}
+        WHERE feedback_id = #{feedbackId}
+    </update>
+
+    <delete id="delete">
+        DELETE FROM feedback WHERE feedback_id = #{feedbackId}
+    </delete>
+
+    <delete id="deleteByTreeId">
+        DELETE FROM feedback WHERE tree_id = #{treeId}
+    </delete>
 </mapper>

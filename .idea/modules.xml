@@ -3,6 +3,13 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/.idea/Fault_Tree_Assistant.iml" filepath="$PROJECT_DIR$/.idea/Fault_Tree_Assistant.iml" />
+      <module fileurl="file://$PROJECT_DIR$/backend/auth-service/auth-service.iml" filepath="$PROJECT_DIR$/backend/auth-service/auth-service.iml" />
+      <module fileurl="file://$PROJECT_DIR$/backend/common-core/common-core.iml" filepath="$PROJECT_DIR$/backend/common-core/common-core.iml" />
+      <module fileurl="file://$PROJECT_DIR$/backend/document-ingest-service/document-ingest-service.iml" filepath="$PROJECT_DIR$/backend/document-ingest-service/document-ingest-service.iml" />
+      <module fileurl="file://$PROJECT_DIR$/backend/fault-tree-editor-service/fault-tree-editor-service.iml" filepath="$PROJECT_DIR$/backend/fault-tree-editor-service/fault-tree-editor-service.iml" />
+      <module fileurl="file://$PROJECT_DIR$/backend/feedback-learning-service/feedback-learning-service.iml" filepath="$PROJECT_DIR$/backend/feedback-learning-service/feedback-learning-service.iml" />
+      <module fileurl="file://$PROJECT_DIR$/backend/gateway-service/gateway-service.iml" filepath="$PROJECT_DIR$/backend/gateway-service/gateway-service.iml" />
+      <module fileurl="file://$PROJECT_DIR$/backend/rule-validation-service/rule-validation-service.iml" filepath="$PROJECT_DIR$/backend/rule-validation-service/rule-validation-service.iml" />
     </modules>
   </component>
 </project>

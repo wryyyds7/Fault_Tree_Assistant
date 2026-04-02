@@ -10,8 +10,21 @@
         <result property="password" column="PASSWORD"/>
         <result property="email" column="EMAIL"/>
         <result property="role" column="ROLE"/>
+        <result property="lastLoginTime" column="LAST_LOGIN_TIME"/>
+        <result property="passwordChangeTime" column="PASSWORD_CHANGE_TIME"/>
+        <result property="failedLoginAttempts" column="FAILED_LOGIN_ATTEMPTS"/>
+        <result property="lockTime" column="LOCK_TIME"/>
+        <result property="passwordHistory" column="PASSWORD_HISTORY"/>
         <result property="createdAt" column="CREATED_AT"/>
     </resultMap>
+
+    <select id="findById" resultMap="UserResultMap">
+        SELECT * FROM users WHERE ID = #{id}
+    </select>
+
+    <select id="findByUserId" resultMap="UserResultMap">
+        SELECT * FROM users WHERE USERID = #{userId}
+    </select>
 
     <select id="findByUsername" resultMap="UserResultMap">
         SELECT * FROM users WHERE USERNAME = #{username}
@@ -21,8 +34,41 @@
         SELECT * FROM users WHERE EMAIL = #{email}
     </select>
 
+    <select id="findAll" resultMap="UserResultMap">
+        SELECT * FROM users
+    </select>
+
     <insert id="insert">
-        INSERT INTO users (ID, USERNAME, PASSWORD, EMAIL, ROLE, CREATED_AT)
-        VALUES (#{id}, #{username}, #{password}, #{email}, #{role}, #{createdAt})
+        INSERT INTO users (USERID, USERNAME, PASSWORD, EMAIL, ROLE, 
+            LAST_LOGIN_TIME, PASSWORD_CHANGE_TIME, FAILED_LOGIN_ATTEMPTS, 
+            LOCK_TIME, PASSWORD_HISTORY, CREATED_AT)
+        VALUES (#{userId}, #{username}, #{password}, #{email}, #{role},
+            #{lastLoginTime}, #{passwordChangeTime}, #{failedLoginAttempts},
+            #{lockTime}, #{passwordHistory}, #{createdAt})
     </insert>
+
+    <update id="update">
+        UPDATE users
+        SET USERNAME = #{username}, PASSWORD = #{password}, EMAIL = #{email}, ROLE = #{role},
+            LAST_LOGIN_TIME = #{lastLoginTime}, PASSWORD_CHANGE_TIME = #{passwordChangeTime},
+            FAILED_LOGIN_ATTEMPTS = #{failedLoginAttempts}, LOCK_TIME = #{lockTime},
+            PASSWORD_HISTORY = #{passwordHistory}
+        WHERE USERID = #{userId}
+    </update>
+
+    <update id="updateLastLoginTime">
+        UPDATE users
+        SET LAST_LOGIN_TIME = #{lastLoginTime}
+        WHERE USERID = #{userId}
+    </update>
+
+    <update id="updateFailedLoginAttempts">
+        UPDATE users
+        SET FAILED_LOGIN_ATTEMPTS = #{failedLoginAttempts}
+        WHERE USERID = #{userId}
+    </update>
+
+    <delete id="delete">
+        DELETE FROM users WHERE USERID = #{userId}
+    </delete>
 </mapper>

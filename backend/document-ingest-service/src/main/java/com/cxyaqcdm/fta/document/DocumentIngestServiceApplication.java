@@ -2,10 +2,11 @@ package com.cxyaqcdm.fta.document;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
 import org.springframework.amqp.rabbit.annotation.EnableRabbit;
 import org.springframework.cloud.openfeign.EnableFeignClients;
 
-@SpringBootApplication
+@SpringBootApplication(exclude = {DataSourceAutoConfiguration.class})
 @EnableRabbit
 @EnableFeignClients(basePackages = "com.cxyaqcdm.fta.document.client")
 public class DocumentIngestServiceApplication {

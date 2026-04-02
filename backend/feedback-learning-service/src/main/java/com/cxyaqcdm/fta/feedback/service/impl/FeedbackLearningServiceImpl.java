@@ -52,7 +52,7 @@ public class FeedbackLearningServiceImpl implements FeedbackLearningService {
 
     @Override
     public FeedbackEntity getFeedback(String feedbackId) {
-        return feedbackMapper.findById(feedbackId);
+        return feedbackMapper.findById(Long.valueOf(feedbackId));
     }
 
     @Override

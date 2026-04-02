@@ -26,4 +26,6 @@ public interface VectorStoreService {
 
     Map<String, Object> getParagraphEvidence(String paragraphId);
     List<Map<String, Object>> searchWithEvidence(String query, int topK);
+    List<Map<String, Object>> searchSimilarVectorsByCategory(String query, String equipmentType, int topK);
+    List<String> getAvailableCategories();
 }

@@ -14,6 +14,8 @@
         <result property="keywords" column="keywords"/>
         <result property="confidenceScore" column="confidence_score"/>
         <result property="content" column="content"/>
+        <result property="sourceType" column="source_type"/>
+        <result property="credibilityWeight" column="credibility_weight"/>
         <result property="createdAt" column="created_at"/>
         <result property="updatedAt" column="updated_at"/>
     </resultMap>
@@ -30,16 +32,20 @@
         SELECT * FROM paragraph_metadata WHERE doc_id = #{docId}
     </select>
 
+    <select id="findBySourceType" resultMap="ParagraphMetadataResultMap">
+        SELECT * FROM paragraph_metadata WHERE source_type = #{sourceType}
+    </select>
+
     <insert id="insert">
-        INSERT INTO paragraph_metadata (paragraph_id, doc_id, section_title, page_number, paragraph_number, text_length, keywords, confidence_score, content, created_at, updated_at)
-        VALUES (#{paragraphId}, #{docId}, #{sectionTitle}, #{pageNumber}, #{paragraphNumber}, #{textLength}, #{keywords}, #{confidenceScore}, #{content}, #{createdAt}, #{updatedAt})
+        INSERT INTO paragraph_metadata (paragraph_id, doc_id, section_title, page_number, paragraph_number, text_length, keywords, confidence_score, content, source_type, credibility_weight, created_at, updated_at)
+        VALUES (#{paragraphId}, #{docId}, #{sectionTitle}, #{pageNumber}, #{paragraphNumber}, #{textLength}, #{keywords}, #{confidenceScore}, #{content}, #{sourceType}, #{credibilityWeight}, #{createdAt}, #{updatedAt})
     </insert>
 
     <update id="update">
         UPDATE paragraph_metadata
         SET section_title = #{sectionTitle}, page_number = #{pageNumber}, paragraph_number = #{paragraphNumber}, 
             text_length = #{textLength}, keywords = #{keywords}, confidence_score = #{confidenceScore}, 
-            content = #{content}, updated_at = #{updatedAt}
+            content = #{content}, source_type = #{sourceType}, credibility_weight = #{credibilityWeight}, updated_at = #{updatedAt}
         WHERE paragraph_id = #{paragraphId}
     </update>
 

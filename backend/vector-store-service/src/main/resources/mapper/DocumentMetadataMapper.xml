@@ -12,6 +12,11 @@
         <result property="uploadTime" column="upload_time"/>
         <result property="equipmentType" column="equipment_type"/>
         <result property="status" column="status"/>
+        <result property="sourceType" column="source_type"/>
+        <result property="credibilityWeight" column="credibility_weight"/>
+        <result property="persistToKnowledgeBase" column="persist_to_knowledge_base"/>
+        <result property="isTemporary" column="is_temporary"/>
+        <result property="expiresAt" column="expires_at"/>
         <result property="createdAt" column="created_at"/>
         <result property="updatedAt" column="updated_at"/>
     </resultMap>
@@ -29,18 +34,35 @@
     </select>
 
     <insert id="insert">
-        INSERT INTO document_metadata (doc_id, file_name, file_type, page_count, upload_time, equipment_type, status, created_at, updated_at)
-        VALUES (#{docId}, #{fileName}, #{fileType}, #{pageCount}, #{uploadTime}, #{equipmentType}, #{status}, #{createdAt}, #{updatedAt})
+        INSERT INTO document_metadata (doc_id, file_name, file_type, page_count, upload_time, equipment_type, status, 
+            source_type, credibility_weight, persist_to_knowledge_base, is_temporary, expires_at, created_at, updated_at)
+        VALUES (#{docId}, #{fileName}, #{fileType}, #{pageCount}, #{uploadTime}, #{equipmentType}, #{status},
+            #{sourceType}, #{credibilityWeight}, #{persistToKnowledgeBase}, #{isTemporary}, #{expiresAt}, #{createdAt}, #{updatedAt})
     </insert>
 
     <update id="update">
         UPDATE document_metadata
         SET file_name = #{fileName}, file_type = #{fileType}, page_count = #{pageCount}, 
-            upload_time = #{uploadTime}, equipment_type = #{equipmentType}, status = #{status}, updated_at = #{updatedAt}
+            upload_time = #{uploadTime}, equipment_type = #{equipmentType}, status = #{status},
+            source_type = #{sourceType}, credibility_weight = #{credibilityWeight}, 
+            persist_to_knowledge_base = #{persistToKnowledgeBase}, is_temporary = #{isTemporary}, 
+            expires_at = #{expiresAt}, updated_at = #{updatedAt}
         WHERE doc_id = #{docId}
     </update>
 
     <delete id="delete">
         DELETE FROM document_metadata WHERE doc_id = #{docId}
     </delete>
+
+    <select id="findByEquipmentType" resultMap="DocumentMetadataResultMap">
+        SELECT * FROM document_metadata WHERE equipment_type = #{equipmentType}
+    </select>
+
+    <select id="findBySourceType" resultMap="DocumentMetadataResultMap">
+        SELECT * FROM document_metadata WHERE source_type = #{sourceType}
+    </select>
+
+    <select id="findDistinctEquipmentTypes" resultType="java.lang.String">
+        SELECT DISTINCT equipment_type FROM document_metadata WHERE equipment_type IS NOT NULL AND equipment_type != ''
+    </select>
 </mapper>

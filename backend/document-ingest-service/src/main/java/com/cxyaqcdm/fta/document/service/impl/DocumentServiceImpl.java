@@ -6,7 +6,7 @@ import com.cxyaqcdm.fta.document.service.DocumentService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
-import org.springframework.beans.factory.annotation.annotation.Value;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -18,6 +18,19 @@ import org.apache.poi.xwpf.usermodel.XWPFTable;
 import org.apache.poi.xwpf.usermodel.XWPFTableCell;
 import org.apache.poi.xwpf.usermodel.XWPFTableRow;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.stream.Collectors;
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -25,6 +38,8 @@ public class DocumentServiceImpl implements DocumentService {
 
     private final RabbitTemplate rabbitTemplate;
     private final VectorStoreClient vectorStoreClient;
+
+
 
     @Value("${document.storage.path}")
     private String storagePath;
@@ -84,7 +99,11 @@ public class DocumentServiceImpl implements DocumentService {
     }
 
     @Override
-    @SuppressWarnings("unchecked")
+    public void processDocument(String docId) {
+        //TODO:看看下面的方法怎么改
+    }
+
+//    @Override
     public void processDocument(Object messageObj) {
         try {
             Map<String, Object> message = (Map<String, Object>) messageObj;

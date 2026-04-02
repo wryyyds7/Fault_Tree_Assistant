@@ -3,13 +3,17 @@ spring:
     uri: bolt://localhost:7687
     authentication:
       username: neo4j
-      password: neo4j
+      password: wry5054755
   application:
     name: knowledge-graph-service
   config:
     import: optional:nacos:${spring.application.name}.yaml?namespace=fta-namespace&group=DEFAULT_GROUP&extension=yaml
   cloud:
     nacos:
+      config:
+        server-addr: 127.0.0.1:8848
+        namespace: fta-namespace
+        file-extension: yaml
       discovery:
         server-addr: localhost:8848
         namespace: fta-namespace

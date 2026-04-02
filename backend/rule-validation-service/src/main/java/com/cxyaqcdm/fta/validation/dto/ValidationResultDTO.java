@@ -10,7 +10,7 @@ public class ValidationResultDTO {
 
     @Data
     public static class ValidationErrorDTO {
-        private int code;
+        private String code;
         private String nodeId;
         private String message;
         private String errorType;

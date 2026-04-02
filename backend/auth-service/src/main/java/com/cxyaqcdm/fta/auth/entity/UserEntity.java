@@ -11,8 +11,13 @@ public class UserEntity {
     private String password;
     private String email;
     private String role;
+    private LocalDateTime lastLoginTime;
+    private LocalDateTime passwordChangeTime;
+    private Integer failedLoginAttempts;
+    private LocalDateTime lockTime;
+    private String passwordHistory;
     private LocalDateTime createdAt;
-    
+
     public void setCreatedAt() {
         this.createdAt = LocalDateTime.now();
     }

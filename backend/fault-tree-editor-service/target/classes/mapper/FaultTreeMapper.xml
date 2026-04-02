@@ -5,12 +5,23 @@
 <mapper namespace="com.cxyaqcdm.fta.editor.mapper.FaultTreeMapper">
     <resultMap id="FaultTreeResultMap" type="com.cxyaqcdm.fta.editor.entity.FaultTreeEntity">
         <id property="id" column="id"/>
+        <result property="treeId" column="tree_id"/>
         <result property="name" column="name"/>
-        <result property="topEvent" column="top_event"/>
         <result property="description" column="description"/>
-        <result property="structure" column="structure"/>
         <result property="equipmentType" column="equipment_type"/>
-        <result property="creatorId" column="creator_id"/>
+        <result property="topEvent" column="top_event"/>
+        <result property="treeData" column="tree_data"/>
+        <result property="version" column="version"/>
+        <result property="validationStatus" column="validation_status"/>
+        <result property="validationMessage" column="validation_message"/>
+        <result property="sourceDocIds" column="source_doc_ids"/>
+        <result property="sourceDetail" column="source_detail"/>
+        <result property="publishStatus" column="publish_status"/>
+        <result property="fusionStatistics" column="fusion_statistics"/>
+        <result property="generatedBy" column="generated_by"/>
+        <result property="templateId" column="template_id"/>
+        <result property="createdBy" column="created_by"/>
+        <result property="updatedBy" column="updated_by"/>
         <result property="createdAt" column="created_at"/>
         <result property="updatedAt" column="updated_at"/>
     </resultMap>
@@ -19,23 +30,58 @@
         SELECT * FROM fault_trees WHERE id = #{id}
     </select>
 
+    <select id="findByTreeId" resultMap="FaultTreeResultMap">
+        SELECT * FROM fault_trees WHERE tree_id = #{treeId}
+    </select>
+
     <select id="findAll" resultMap="FaultTreeResultMap">
         SELECT * FROM fault_trees
     </select>
 
+    <select id="findByEquipmentType" resultMap="FaultTreeResultMap">
+        SELECT * FROM fault_trees WHERE equipment_type = #{equipmentType}
+    </select>
+
+    <select id="findByValidationStatus" resultMap="FaultTreeResultMap">
+        SELECT * FROM fault_trees WHERE validation_status = #{validationStatus}
+    </select>
+
+    <select id="findByPublishStatus" resultMap="FaultTreeResultMap">
+        SELECT * FROM fault_trees WHERE publish_status = #{publishStatus}
+    </select>
+
+    <select id="findByCreatedBy" resultMap="FaultTreeResultMap">
+        SELECT * FROM fault_trees WHERE created_by = #{createdBy}
+    </select>
+
     <insert id="insert">
-        INSERT INTO fault_trees (id, name, top_event, description, structure, equipment_type, creator_id, created_at, updated_at)
-        VALUES (#{id}, #{name}, #{topEvent}, #{description}, #{structure}, #{equipmentType}, #{creatorId}, #{createdAt}, #{updatedAt})
+        INSERT INTO fault_trees (tree_id, name, description, equipment_type, top_event, tree_data, 
+            version, validation_status, validation_message, source_doc_ids, source_detail, 
+            publish_status, fusion_statistics, generated_by, template_id, created_by, updated_by,
+            created_at, updated_at)
+        VALUES (#{treeId}, #{name}, #{description}, #{equipmentType}, #{topEvent}, #{treeData},
+            #{version}, #{validationStatus}, #{validationMessage}, #{sourceDocIds}, #{sourceDetail},
+            #{publishStatus}, #{fusionStatistics}, #{generatedBy}, #{templateId}, #{createdBy}, #{updatedBy},
+            #{createdAt}, #{updatedAt})
     </insert>
 
     <update id="update">
         UPDATE fault_trees
-        SET name = #{name}, top_event = #{topEvent}, description = #{description}, structure = #{structure},
-            equipment_type = #{equipmentType}, updated_at = #{updatedAt}
-        WHERE id = #{id}
+        SET name = #{name}, description = #{description}, equipment_type = #{equipmentType},
+            top_event = #{topEvent}, tree_data = #{treeData}, version = #{version},
+            validation_status = #{validationStatus}, validation_message = #{validationMessage},
+            source_doc_ids = #{sourceDocIds}, source_detail = #{sourceDetail},
+            publish_status = #{publishStatus}, fusion_statistics = #{fusionStatistics},
+            generated_by = #{generatedBy}, template_id = #{templateId}, updated_by = #{updatedBy},
+            updated_at = #{updatedAt}
+        WHERE tree_id = #{treeId}
     </update>
 
     <delete id="delete">
         DELETE FROM fault_trees WHERE id = #{id}
+    </delete>
+
+    <delete id="deleteByTreeId">
+        DELETE FROM fault_trees WHERE tree_id = #{treeId}
     </delete>
 </mapper>

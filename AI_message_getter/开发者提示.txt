@@ -1,14 +1,14 @@
 # 开发者提示
 
-## 已修复的问题 (2026-03-24)
+## 已修复的问题 (2026-03-27)
 
-### 1. userId硬编码问题 ✅ 已修复
+### 1. userId硬编码问题 ✅ 已修复 (2026-03-24)
 - **位置**：
   - fault-tree-editor-service/src/main/java/com/xuelangyun/fta/editor/controller/FaultTreeEditorController.java
   - feedback-learning-service/src/main/java/com/xuelangyun/fta/feedback/controller/FeedbackLearningController.java
 - **修复方案**：通过 `SecurityContextHolder.getContext().getAuthentication()` 从JWT获取当前登录用户
 
-### 2. RAG服务HTTP API ✅ 已修复
+### 2. RAG服务HTTP API ✅ 已修复 (2026-03-24)
 - **位置**：python-service/rag-generation-service/rag_api.py
 - **修复方案**：新增 FastAPI 服务，暴露 HTTP 接口供前端触发生成
 - **API端点**：
@@ -17,11 +17,71 @@
   - GET /api/v1/rag/evidence/{paragraph_id} - 溯源证据
   - POST /api/v1/rag/evidence - 事件溯源列表
 
-### 3. 新增服务路由 ✅ 已修复
+### 3. 新增服务路由 ✅ 已修复 (2026-03-24)
 - **位置**：gateway-service/src/main/resources/application.yml
 - **新增路由**：
   - vector-store-service: /api/v1/vector/**
   - rag-generation-service: /api/v1/rag/**
+
+### 4. VectorStoreService向量存储 ✅ 已修复 (2026-03-27)
+- **位置**：
+  - backend/vector-store-service/src/main/java/com/cxyaqcdm/fta/vector/service/impl/VectorStoreServiceImpl.java
+  - backend/vector-store-service/src/main/java/com/cxyaqcdm/fta/vector/client/EmbeddingClient.java
+- **修复方案**：
+  - 添加EmbeddingClient用于调用外部向量服务（BGE-M3模型）
+  - 实现generateVectors()真正生成向量，支持外部服务调用和本地fallback
+  - 实现searchSimilarVectors()使用余弦相似度计算
+  - 支持可配置的向量维度和模型名称
+- **环境变量**：
+  - `embedding.service.url`: 向量服务URL（默认http://localhost:8001）
+  - `vector.model.name`: 向量模型名称（默认BGE-M3）
+  - `vector.dimension`: 向量维度（默认1024）
+
+### 5. RuleValidationService Drools规则 ✅ 已修复 (2026-03-27)
+- **位置**：
+  - backend/rule-validation-service/src/main/java/com/cxyaqcdm/fta/validation/service/impl/RuleValidationServiceImpl.java
+  - backend/rule-validation-service/src/main/resources/rules/fault-tree-validation.drl
+- **修复方案**：
+  - 创建完整的Drools规则文件（循环检测、门输入验证、事件类型检查等）
+  - 实现validateWithDrools()真正执行规则
+  - 添加降级机制，Drools失败时使用手动验证
+  - 增强手动验证，添加checkSingleTopEvent()和checkEventNames()
+
+### 6. KnowledgeGraphService模板匹配 ✅ 已修复 (2026-03-27)
+- **位置**：backend/knowledge-graph-service/src/main/java/com/cxyaqcdm/fta/knowledge/service/impl/KnowledgeGraphServiceImpl.java
+- **修复方案**：
+  - 实现三层匹配策略（精确匹配、模糊匹配、设备类型匹配）
+  - 添加Levenshtein距离相似度计算
+  - 实现从知识图谱查询因果关系构建模板结构
+  - 添加匹配分数、匹配类型和替代匹配结果
+  - 提供更智能的默认模板
+
+### 7. LLMClient错误处理 ✅ 已修复 (2026-03-27)
+- **位置**：python-service/rag-generation-service/rag_service/llm_client.py
+- **修复方案**：
+  - 添加异常类层级（LLMClientError、LLMConfigurationError、LLMServiceError）
+  - 通过环境变量配置所有参数
+  - 添加fallback机制开关
+  - 添加mock模式（USE_MOCK_LLM环境变量）
+  - 使用UUID生成唯一ID，不再依赖硬编码
+- **环境变量**：
+  - `BAILIAN_API_KEY`: 百炼API密钥
+  - `BAILIAN_API_URL`: 百炼API URL
+  - `LLM_MODEL`: 模型名称（默认qwen-max）
+  - `LLM_TEMPERATURE`: 温度（默认0.7）
+  - `LLM_MAX_TOKENS`: 最大token数（默认2000）
+  - `LLM_TIMEOUT`: 超时时间（默认30秒）
+  - `USE_MOCK_LLM`: 是否使用mock模式（默认false）
+
+### 8. FaultTreeGenerator JSON解析 ✅ 已修复 (2026-03-27)
+- **位置**：python-service/rag-generation-service/rag_service/fault_tree_generator.py
+- **修复方案**：
+  - 实现多种JSON提取策略（精确匹配、Markdown代码块、通用代码块、栈式大括号匹配）
+  - 实现多种JSON解析修复策略（移除尾随逗号、为未加引号的键加引号、替换单引号、移除注释）
+  - 添加树数据规范化，确保必要字段存在
+  - 添加深度限制，防止无限递归
+- **环境变量**：
+  - `FAULT_TREE_MAX_DEPTH`: 故障树最大深度（默认10）
 
 ## 配置信息填充指南
 

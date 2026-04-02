@@ -1,0 +1,14 @@
+com\cxyaqcdm\fta\auth\dto\LoginRequest.class
+com\cxyaqcdm\fta\auth\config\SnowflakeIdProperties.class
+com\cxyaqcdm\fta\auth\service\AuthService.class
+com\cxyaqcdm\fta\auth\entity\UserEntity.class
+com\cxyaqcdm\fta\auth\mapper\UserMapper.class
+com\cxyaqcdm\fta\auth\service\impl\AuthServiceImpl.class
+com\cxyaqcdm\fta\auth\dto\RegisterRequest.class
+com\cxyaqcdm\fta\auth\dto\LoginResponse.class
+com\cxyaqcdm\fta\auth\AuthServiceApplication.class
+com\cxyaqcdm\fta\auth\util\SnowflakeIdGenerator.class
+com\cxyaqcdm\fta\auth\config\SecurityConfig.class
+com\cxyaqcdm\fta\auth\handler\StringToLongTypeHandler.class
+com\cxyaqcdm\fta\auth\config\SnowflakeConfig.class
+com\cxyaqcdm\fta\auth\controller\AuthController.class

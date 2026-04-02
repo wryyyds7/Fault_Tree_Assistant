@@ -11,7 +11,9 @@ public class VectorStore {
     private String docId;
     private String vectorData;
     private Integer vectorDimension;
+    private String embeddingModel;
     private Double similarityScore;
+    private String createdBy;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     

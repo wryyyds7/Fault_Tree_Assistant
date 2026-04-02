@@ -1,0 +1,4 @@
+com\cxyaqcdm\fta\gateway\GatewayServiceApplication.class
+com\cxyaqcdm\fta\gateway\config\SecurityConfig.class
+com\cxyaqcdm\fta\gateway\config\JwtAuthenticationFilter.class
+com\cxyaqcdm\fta\gateway\config\JwtAuthenticationFilter$Config.class

@@ -12,7 +12,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/v1/documents")
 @RequiredArgsConstructor
-public class DocumentController {
+public class   DocumentController {
 
     private final DocumentService documentService;
 

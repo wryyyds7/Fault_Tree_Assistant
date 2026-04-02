@@ -35,10 +35,10 @@ public class DocumentControllerTest {
         result.put("status", "success");
         result.put("message", "Document uploaded successfully");
 
-        when(documentService.uploadDocument(multipartFile)).thenReturn(result);
+        when(documentService.uploadDocument(multipartFile, "unknown", null, false)).thenReturn(result);
 
         // Act
-        ResponseEntity<Map<String, Object>> response = documentController.uploadDocument(multipartFile);
+        ResponseEntity<Map<String, Object>> response = documentController.uploadDocument(multipartFile, "unknown", null, false);
 
         // Assert
         assertEquals(200, response.getStatusCodeValue());

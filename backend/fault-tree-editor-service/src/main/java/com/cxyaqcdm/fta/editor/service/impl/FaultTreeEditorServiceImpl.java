@@ -45,7 +45,7 @@ public class FaultTreeEditorServiceImpl implements FaultTreeEditorService {
 
     @Override
     public FaultTreeEntity getFaultTree(String treeId) {
-        return faultTreeMapper.findById(treeId);
+        return faultTreeMapper.findByTreeId(treeId);
     }
 
     @Override
@@ -57,7 +57,7 @@ public class FaultTreeEditorServiceImpl implements FaultTreeEditorService {
     public FaultTreeEntity updateFaultTree(String treeId, FaultTreeDTO faultTreeDTO, String userId) {
         try {
             // 查找现有故障树
-            FaultTreeEntity entity = faultTreeMapper.findById(treeId);
+            FaultTreeEntity entity = faultTreeMapper.findByTreeId(treeId);
             if (entity == null) {
                 throw new RuntimeException("Fault tree not found");
             }
@@ -82,11 +82,11 @@ public class FaultTreeEditorServiceImpl implements FaultTreeEditorService {
     @Override
     public void deleteFaultTree(String treeId) {
         try {
-            FaultTreeEntity entity = faultTreeMapper.findById(treeId);
+            FaultTreeEntity entity = faultTreeMapper.findByTreeId(treeId);
             if (entity == null) {
                 throw new RuntimeException("Fault tree not found");
             }
-            faultTreeMapper.delete(treeId);
+            faultTreeMapper.deleteByTreeId(treeId);
         } catch (Exception e) {
             log.error("Error deleting fault tree: {}", e.getMessage());
             throw new RuntimeException("Failed to delete fault tree", e);
@@ -120,7 +120,7 @@ public class FaultTreeEditorServiceImpl implements FaultTreeEditorService {
 
     @Override
     public FaultTreeDTO addNode(String treeId, FaultTreeDTO parentNode, FaultTreeDTO newNode, String userId) {
-        FaultTreeEntity entity = faultTreeMapper.findById(treeId);
+        FaultTreeEntity entity = faultTreeMapper.findByTreeId(treeId);
         if (entity == null) {
             throw new RuntimeException("Fault tree not found");
         }
@@ -165,7 +165,7 @@ public class FaultTreeEditorServiceImpl implements FaultTreeEditorService {
 
     @Override
     public FaultTreeDTO updateNode(String treeId, FaultTreeDTO updatedNode, String userId) {
-        FaultTreeEntity entity = faultTreeMapper.findById(treeId);
+        FaultTreeEntity entity = faultTreeMapper.findByTreeId(treeId);
         if (entity == null) {
             throw new RuntimeException("Fault tree not found");
         }
@@ -213,7 +213,7 @@ public class FaultTreeEditorServiceImpl implements FaultTreeEditorService {
 
     @Override
     public void deleteNode(String treeId, String eventId, String userId) {
-        FaultTreeEntity entity = faultTreeMapper.findById(treeId);
+        FaultTreeEntity entity = faultTreeMapper.findByTreeId(treeId);
         if (entity == null) {
             throw new RuntimeException("Fault tree not found");
         }
@@ -253,7 +253,7 @@ public class FaultTreeEditorServiceImpl implements FaultTreeEditorService {
 
     @Override
     public FaultTreeDTO moveNode(String treeId, String eventId, String newParentId, String userId) {
-        FaultTreeEntity entity = faultTreeMapper.findById(treeId);
+        FaultTreeEntity entity = faultTreeMapper.findByTreeId(treeId);
         if (entity == null) {
             throw new RuntimeException("Fault tree not found");
         }
@@ -304,7 +304,7 @@ public class FaultTreeEditorServiceImpl implements FaultTreeEditorService {
 
     @Override
     public void updateNodePositions(String treeId, Map<String, FaultTreeDTO.PositionDTO> positions, String userId) {
-        FaultTreeEntity entity = faultTreeMapper.findById(treeId);
+        FaultTreeEntity entity = faultTreeMapper.findByTreeId(treeId);
         if (entity == null) {
             throw new RuntimeException("Fault tree not found");
         }
@@ -334,7 +334,7 @@ public class FaultTreeEditorServiceImpl implements FaultTreeEditorService {
 
     @Override
     public FaultTreeDTO updateNodeConfidence(String treeId, String eventId, Double confidence, String verificationStatus, String userId) {
-        FaultTreeEntity entity = faultTreeMapper.findById(treeId);
+        FaultTreeEntity entity = faultTreeMapper.findByTreeId(treeId);
         if (entity == null) {
             throw new RuntimeException("Fault tree not found");
         }
@@ -359,7 +359,7 @@ public class FaultTreeEditorServiceImpl implements FaultTreeEditorService {
 
     @Override
     public FaultTreeDTO updateNodeVerificationStatus(String treeId, String eventId, String verificationStatus, String userId) {
-        FaultTreeEntity entity = faultTreeMapper.findById(treeId);
+        FaultTreeEntity entity = faultTreeMapper.findByTreeId(treeId);
         if (entity == null) {
             throw new RuntimeException("Fault tree not found");
         }

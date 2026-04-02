@@ -1,4 +1,0 @@
--------------------------------------------------------------------------------
-Test set: com.cxyaqcdm.fta.document.controller.DocumentControllerTest
--------------------------------------------------------------------------------
-Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 2.972 s -- in com.cxyaqcdm.fta.document.controller.DocumentControllerTest

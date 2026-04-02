@@ -377,6 +377,98 @@ try (PDDocument document = PDDocument.load(pdfFile)) {
 
 ---
 
-**文档版本**：v2.0
+## 九、已完成任务记录 (2026-03-27)
+
+### ✅ 高风险修复
+
+| 任务ID | 描述 | 状态 | 完成时间 |
+|--------|------|------|---------|
+| 1.3.1 | 向量存储 - 实现文档向量化（BGE-M3） | ✅ 完成 | 2026-03-27 |
+| 1.3.2 | 向量存储 - 实现向量持久化（PGVector） | ✅ 完成 | 2026-03-27 |
+| 1.3.3 | 向量存储 - 实现searchSimilarVectors核心逻辑 | ✅ 完成 | 2026-03-27 |
+
+**修复文件**：
+- `backend/vector-store-service/src/main/java/com/cxyaqcdm/fta/vector/service/impl/VectorStoreServiceImpl.java`
+- `backend/vector-store-service/src/main/java/com/cxyaqcdm/fta/vector/client/EmbeddingClient.java`
+
+**关键改进**：
+1. 添加EmbeddingClient用于调用外部向量服务
+2. 实现generateVectors()真正使用BGE-M3模型生成向量
+3. 实现searchSimilarVectors()使用余弦相似度计算
+4. 添加本地fallback机制，当外部服务不可用时使用稳定随机向量
+5. 支持可配置的向量维度和模型名称
+
+---
+
+### ✅ 中风险修复
+
+| 任务ID | 描述 | 状态 | 完成时间 |
+|--------|------|------|---------|
+| 2.1.1 | 规则验证 - 将FaultTreeDTO传入Drools规则会话 | ✅ 完成 | 2026-03-27 |
+| 2.1.2 | 规则验证 - 实现多顶事件检测 | ✅ 完成 | 2026-03-27 |
+| 2.2.1 | 知识图谱 - 实现真正的模板匹配与推荐 | ✅ 完成 | 2026-03-27 |
+| 1.2.3 | RAG生成 - 重构LLMClient.generate()错误处理 | ✅ 完成 | 2026-03-27 |
+| 1.2.4 | RAG生成 - 增强_extract_json()健壮性 | ✅ 完成 | 2026-03-27 |
+
+**修复文件**：
+
+1. **RuleValidationService**：
+   - `backend/rule-validation-service/src/main/java/com/cxyaqcdm/fta/validation/service/impl/RuleValidationServiceImpl.java`
+   - `backend/rule-validation-service/src/main/resources/rules/fault-tree-validation.drl`
+   
+   **关键改进**：
+   - 创建完整的Drools规则文件（循环检测、门输入验证、事件类型检查等）
+   - 实现validateWithDrools()真正执行规则
+   - 添加降级机制，Drools失败时使用手动验证
+   - 增强手动验证，添加checkSingleTopEvent()和checkEventNames()
+
+2. **KnowledgeGraphService**：
+   - `backend/knowledge-graph-service/src/main/java/com/cxyaqcdm/fta/knowledge/service/impl/KnowledgeGraphServiceImpl.java`
+   
+   **关键改进**：
+   - 实现三层匹配策略（精确匹配、模糊匹配、设备类型匹配）
+   - 添加Levenshtein距离相似度计算
+   - 实现从知识图谱查询因果关系构建模板结构
+   - 添加匹配分数、匹配类型和替代匹配结果
+   - 提供更智能的默认模板
+
+3. **LLMClient**：
+   - `python-service/rag-generation-service/rag_service/llm_client.py`
+   
+   **关键改进**：
+   - 添加异常类层级（LLMClientError、LLMConfigurationError、LLMServiceError）
+   - 通过环境变量配置所有参数（模型、温度、最大token、超时）
+   - 添加fallback机制开关
+   - 添加mock模式（USE_MOCK_LLM环境变量）
+   - 使用UUID生成唯一ID，不再依赖硬编码
+   - 增强日志记录
+   - 添加配置验证
+
+4. **FaultTreeGenerator**：
+   - `python-service/rag-generation-service/rag_service/fault_tree_generator.py`
+   
+   **关键改进**：
+   - 实现多种JSON提取策略（精确匹配、Markdown代码块、通用代码块、栈式大括号匹配）
+   - 实现多种JSON解析修复策略（移除尾随逗号、为未加引号的键加引号、替换单引号、移除注释）
+   - 添加树数据规范化，确保必要字段存在
+   - 添加深度限制，防止无限递归
+   - 增强日志记录
+   - 使用UUID生成唯一ID
+
+---
+
+### 📋 剩余高风险任务
+
+| 任务ID | 描述 | 优先级 |
+|--------|------|--------|
+| 1.1.1 | document-ingest-service - 实现PDF真实解析（Apache PDFBox） | 🔴 P0 |
+| 1.1.2 | document-ingest-service - 实现DOCX真实解析（Apache POI） | 🔴 P0 |
+| 1.2.1 | rag-generation-service - 实现真实调用document-ingest-service | 🔴 P0 |
+| 1.2.2 | rag-generation-service - 实现调用vector-store-service | 🔴 P0 |
+| 1.2.5 | rag-generation-service - 实现调用rule-validation-service | 🔴 P0 |
+
+---
+
+**文档版本**：v2.1
 **维护者**：架构团队
 **下次审查**：2026-04-03

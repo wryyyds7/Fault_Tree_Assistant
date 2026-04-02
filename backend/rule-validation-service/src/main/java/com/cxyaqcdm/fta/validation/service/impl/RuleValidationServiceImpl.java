@@ -12,8 +12,11 @@ import org.kie.api.builder.KieBuilder;
 import org.kie.api.builder.KieFileSystem;
 import org.kie.api.builder.KieModule;
 import org.kie.api.builder.KieRepository;
+import org.kie.api.builder.Message.Level;
 import org.kie.api.runtime.KieContainer;
+import org.kie.api.runtime.KieSession;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 
 import jakarta.annotation.PostConstruct;
@@ -28,19 +31,29 @@ import java.util.Set;
 public class RuleValidationServiceImpl implements RuleValidationService {
 
     private KieContainer kieContainer;
+    private boolean droolsInitialized = false;
 
-    @Value("${rule.engine.rules.path}")
+    @Value("${rule.engine.rules.path:rules}")
     private String rulesPath;
 
     @PostConstruct
     public void init() {
         try {
-            // 初始化Drools规则引擎
             KieServices kieServices = KieServices.Factory.get();
             KieRepository kieRepository = kieServices.getRepository();
             KieFileSystem kieFileSystem = kieServices.newKieFileSystem();
             
-            // 加载规则文件
+            try {
+                ClassPathResource resource = new ClassPathResource("rules/fault-tree-validation.drl");
+                if (resource.exists()) {
+                    kieFileSystem.write("src/main/resources/rules/fault-tree-validation.drl",
+                            kieServices.getResources().newInputStreamResource(resource.getInputStream()));
+                    log.info("Loaded Drools rules from classpath");
+                }
+            } catch (Exception e) {
+                log.warn("Failed to load rules from classpath: {}", e.getMessage());
+            }
+            
             File rulesDir = new File(rulesPath);
             if (rulesDir.exists() && rulesDir.isDirectory()) {
                 File[] ruleFiles = rulesDir.listFiles((dir, name) -> name.endsWith(".drl"));
@@ -49,18 +62,23 @@ public class RuleValidationServiceImpl implements RuleValidationService {
                         kieFileSystem.write("src/main/resources/" + ruleFile.getName(),
                                 kieServices.getResources().newFileSystemResource(ruleFile));
                     }
+                    log.info("Loaded {} Drools rule files from directory", ruleFiles.length);
                 }
             }
             
-            // 构建规则
             KieBuilder kieBuilder = kieServices.newKieBuilder(kieFileSystem);
             kieBuilder.buildAll();
-            KieModule kieModule = kieBuilder.getKieModule();
-            kieContainer = kieServices.newKieContainer(kieModule.getReleaseId());
             
-            log.info("Drools rule engine initialized successfully");
+            if (kieBuilder.getResults().hasMessages(Level.ERROR)) {
+                log.error("Drools rule compilation errors: {}", kieBuilder.getResults().getMessages());
+            } else {
+                KieModule kieModule = kieBuilder.getKieModule();
+                kieContainer = kieServices.newKieContainer(kieModule.getReleaseId());
+                droolsInitialized = true;
+                log.info("Drools rule engine initialized successfully");
+            }
         } catch (Exception e) {
-            log.error("Failed to initialize Drools rule engine: {}", e.getMessage());
+            log.error("Failed to initialize Drools rule engine: {}", e.getMessage(), e);
         }
     }
 
@@ -69,29 +87,75 @@ public class RuleValidationServiceImpl implements RuleValidationService {
         ValidationResultDTO result = new ValidationResultDTO();
         List<ValidationResultDTO.ValidationErrorDTO> errors = new ArrayList<>();
         
-        // 检查循环依赖
-        checkCyclicDependency(faultTree, new HashSet<>(), errors);
+        if (droolsInitialized && kieContainer != null) {
+            try {
+                log.info("Validating fault tree using Drools rules");
+                errors = validateWithDrools(faultTree);
+            } catch (Exception e) {
+                log.error("Drools validation failed, falling back to manual validation: {}", e.getMessage());
+                errors = validateManually(faultTree);
+            }
+        } else {
+            log.warn("Drools not initialized, using manual validation");
+            errors = validateManually(faultTree);
+        }
         
-        // 检查节点类型合法性
-        checkNodeTypeValidity(faultTree, errors);
-        
-        // 检查逻辑门连接数
-        checkGateConnectionCount(faultTree, errors);
-        
-        // 检查本体一致性
-        checkOntologyConsistency(faultTree, errors);
-        
-        // 设置结果
         result.setValid(errors.isEmpty());
         result.setErrors(errors);
         
+        log.info("Fault tree validation complete. Valid: {}, Errors: {}", result.isValid(), errors.size());
         return result;
+    }
+    
+    private List<ValidationResultDTO.ValidationErrorDTO> validateWithDrools(FaultTreeDTO faultTree) {
+        List<ValidationResultDTO.ValidationErrorDTO> errors = new ArrayList<>();
+        KieSession kieSession = null;
+        
+        try {
+            kieSession = kieContainer.newKieSession();
+            kieSession.setGlobal("errors", errors);
+            
+            insertAllNodes(kieSession, faultTree);
+            
+            int firedRules = kieSession.fireAllRules();
+            log.info("Fired {} Drools validation rules", firedRules);
+            
+        } finally {
+            if (kieSession != null) {
+                kieSession.dispose();
+            }
+        }
+        
+        return errors;
+    }
+    
+    private void insertAllNodes(KieSession kieSession, FaultTreeDTO node) {
+        kieSession.insert(node);
+        
+        if (node.getChildren() != null) {
+            for (FaultTreeDTO child : node.getChildren()) {
+                insertAllNodes(kieSession, child);
+            }
+        }
+    }
+    
+    private List<ValidationResultDTO.ValidationErrorDTO> validateManually(FaultTreeDTO faultTree) {
+        List<ValidationResultDTO.ValidationErrorDTO> errors = new ArrayList<>();
+        
+        checkCyclicDependency(faultTree, new HashSet<>(), errors);
+        checkNodeTypeValidity(faultTree, errors);
+        checkGateConnectionCount(faultTree, errors);
+        checkOntologyConsistency(faultTree, errors);
+        checkSingleTopEvent(faultTree, errors);
+        checkEventNames(faultTree, new HashSet<>(), errors);
+        
+        return errors;
     }
 
     private void checkCyclicDependency(FaultTreeDTO node, Set<String> visited, List<ValidationResultDTO.ValidationErrorDTO> errors) {
         if (visited.contains(node.getEventId())) {
             ValidationResultDTO.ValidationErrorDTO error = new ValidationResultDTO.ValidationErrorDTO();
-            error.setCode(ValidationRuleCode.CYCLE_DETECTED);
+            error.setCode(String.valueOf(ValidationRuleCode.CYCLE_DETECTED));
             error.setNodeId(node.getEventId());
             error.setMessage("Detected cyclic dependency involving node: " + node.getEventId());
             error.setErrorType("CIRCULAR_DEPENDENCY");
@@ -113,7 +177,7 @@ public class RuleValidationServiceImpl implements RuleValidationService {
         if (EventTypeEnum.BASIC == node.getEventType() &&
             node.getChildren() != null && !node.getChildren().isEmpty()) {
             ValidationResultDTO.ValidationErrorDTO error = new ValidationResultDTO.ValidationErrorDTO();
-            error.setCode(ValidationRuleCode.BASIC_EVENT_HAS_CHILDREN);
+            error.setCode(String.valueOf(ValidationRuleCode.BASIC_EVENT_HAS_CHILDREN));
             error.setNodeId(node.getEventId());
             error.setMessage("Basic event cannot have children: " + node.getEventName());
             error.setErrorType("INVALID_BASIC_NODE");
@@ -134,7 +198,7 @@ public class RuleValidationServiceImpl implements RuleValidationService {
             if ((gateType == LogicGateEnum.AND || gateType == LogicGateEnum.OR) &&
                 (node.getChildren() == null || node.getChildren().size() < 2)) {
                 ValidationResultDTO.ValidationErrorDTO error = new ValidationResultDTO.ValidationErrorDTO();
-                error.setCode(ValidationRuleCode.INSUFFICIENT_INPUTS);
+                error.setCode(String.valueOf(ValidationRuleCode.INSUFFICIENT_INPUTS));
                 error.setNodeId(node.getEventId());
                 error.setMessage(gateType + " gate must have at least two inputs. Current: " +
                     (node.getChildren() == null ? 0 : node.getChildren().size()));
@@ -155,7 +219,7 @@ public class RuleValidationServiceImpl implements RuleValidationService {
     private void checkOntologyConsistency(FaultTreeDTO node, List<ValidationResultDTO.ValidationErrorDTO> errors) {
         if (node.getEventType() == null) {
             ValidationResultDTO.ValidationErrorDTO error = new ValidationResultDTO.ValidationErrorDTO();
-            error.setCode(ValidationRuleCode.ONTOLOGY_INCONSISTENCY);
+            error.setCode(String.valueOf(ValidationRuleCode.ONTOLOGY_INCONSISTENCY));
             error.setNodeId(node.getEventId());
             error.setMessage("Event type cannot be null for event: " + node.getEventId());
             error.setErrorType("MISSING_EVENT_TYPE");
@@ -166,6 +230,76 @@ public class RuleValidationServiceImpl implements RuleValidationService {
         if (node.getChildren() != null) {
             for (FaultTreeDTO child : node.getChildren()) {
                 checkOntologyConsistency(child, errors);
+            }
+        }
+    }
+    
+    private void checkSingleTopEvent(FaultTreeDTO root, List<ValidationResultDTO.ValidationErrorDTO> errors) {
+        if (root.getEventType() != EventTypeEnum.TOP) {
+            ValidationResultDTO.ValidationErrorDTO error = new ValidationResultDTO.ValidationErrorDTO();
+            error.setCode(String.valueOf(ValidationRuleCode.MISSING_TOP_EVENT));
+            error.setNodeId(root.getEventId());
+            error.setMessage("Root node must be a TOP event");
+            error.setErrorType("INVALID_TOP_EVENT");
+            error.setSuggestion("Set the root node event type to TOP.");
+            errors.add(error);
+        }
+        
+        long topEventCount = countTopEvents(root, new HashSet<>());
+        if (topEventCount > 1) {
+            ValidationResultDTO.ValidationErrorDTO error = new ValidationResultDTO.ValidationErrorDTO();
+            error.setCode(String.valueOf(ValidationRuleCode.INVALID_EVENT_TYPE));
+            error.setNodeId(root.getEventId());
+            error.setMessage("Multiple TOP events found: " + topEventCount);
+            error.setErrorType("MULTIPLE_TOPS");
+            error.setSuggestion("Ensure only one TOP event exists at the root of the fault tree.");
+            errors.add(error);
+        }
+    }
+    
+    private long countTopEvents(FaultTreeDTO node, Set<String> visited) {
+        if (visited.contains(node.getEventId())) {
+            return 0;
+        }
+        visited.add(node.getEventId());
+        
+        long count = (node.getEventType() == EventTypeEnum.TOP) ? 1 : 0;
+        
+        if (node.getChildren() != null) {
+            for (FaultTreeDTO child : node.getChildren()) {
+                count += countTopEvents(child, visited);
+            }
+        }
+        
+        return count;
+    }
+    
+    private void checkEventNames(FaultTreeDTO node, Set<String> eventIds, List<ValidationResultDTO.ValidationErrorDTO> errors) {
+        if (eventIds.contains(node.getEventId())) {
+            ValidationResultDTO.ValidationErrorDTO error = new ValidationResultDTO.ValidationErrorDTO();
+            error.setCode(String.valueOf(ValidationRuleCode.INVALID_NODE_STRUCTURE));
+            error.setNodeId(node.getEventId());
+            error.setMessage("Duplicate event ID found: " + node.getEventId());
+            error.setErrorType("DUPLICATE_ID");
+            error.setSuggestion("Ensure each event has a unique eventId.");
+            errors.add(error);
+        } else {
+            eventIds.add(node.getEventId());
+        }
+        
+        if (node.getEventName() == null || node.getEventName().trim().isEmpty()) {
+            ValidationResultDTO.ValidationErrorDTO error = new ValidationResultDTO.ValidationErrorDTO();
+            error.setCode(String.valueOf(ValidationRuleCode.MISSING_REQUIRED_PROPERTY));
+            error.setNodeId(node.getEventId());
+            error.setMessage("Event name cannot be empty");
+            error.setErrorType("EMPTY_NAME");
+            error.setSuggestion("Provide a meaningful name for the event.");
+            errors.add(error);
+        }
+        
+        if (node.getChildren() != null) {
+            for (FaultTreeDTO child : node.getChildren()) {
+                checkEventNames(child, eventIds, errors);
             }
         }
     }
