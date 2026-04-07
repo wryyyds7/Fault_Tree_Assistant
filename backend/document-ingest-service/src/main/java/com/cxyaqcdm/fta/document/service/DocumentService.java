@@ -10,4 +10,5 @@ public interface DocumentService {
     void processDocument(String docId);
     Map<String, Object> getDocumentContent(String docId);
     List<Map<String, Object>> getDocumentParagraphs(String docId);
+    List<Map<String, Object>> getAllDocuments();
 }

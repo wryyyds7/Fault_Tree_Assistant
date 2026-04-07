@@ -22,6 +22,7 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-amqp</artifactId>
         </dependency>
+
         <dependency>
             <groupId>com.xuelangyun.fta</groupId>
             <artifactId>common-core</artifactId>
@@ -42,6 +43,11 @@
             <groupId>org.drools</groupId>
             <artifactId>drools-core</artifactId>
             <version>8.44.0.Final</version>
+        </dependency>
+        <dependency>
+            <groupId>org.drools</groupId>
+            <artifactId>drools-mvel</artifactId>
+            <version>8.44.0.Final</version> <!-- 与你当前 drools 版本一致 -->
         </dependency>
         <dependency>
             <groupId>org.drools</groupId>

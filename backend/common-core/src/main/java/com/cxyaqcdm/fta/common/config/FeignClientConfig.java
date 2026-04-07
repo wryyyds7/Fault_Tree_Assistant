@@ -1,19 +1,19 @@
-        package com.cxyaqcdm.fta.common.config;
+package com.cxyaqcdm.fta.common.config;
 
-import feign.Contract;
 import feign.Logger;
 import feign.codec.Decoder;
 import feign.codec.Encoder;
 import feign.jackson.JacksonDecoder;
 import feign.jackson.JacksonEncoder;
+import org.springframework.cloud.openfeign.support.SpringMvcContract;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
 public class FeignClientConfig {
     @Bean
-    public Contract feignContract() {
-        return new Contract.Default();
+    public feign.Contract feignContract() {
+        return new SpringMvcContract();
     }
 
     @Bean

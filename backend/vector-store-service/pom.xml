@@ -5,8 +5,8 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>com.cxyaqcdm.fta</groupId>
-        <artifactId>fault-tree-assistant</artifactId>
+        <groupId>com.xuelangyun.fta</groupId>
+        <artifactId>fault-tree-generation</artifactId>
         <version>1.0.0</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
@@ -34,24 +34,37 @@
             <artifactId>spring-cloud-starter-openfeign</artifactId>
         </dependency>
 
-        <!-- Spring Cloud Nacos Discovery -->
+        <!-- Spring Cloud Nacos Discovery (关键：排除 nacos-client) -->
         <dependency>
             <groupId>com.alibaba.cloud</groupId>
             <artifactId>spring-cloud-starter-alibaba-nacos-discovery</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.alibaba.nacos</groupId>
+                    <artifactId>nacos-client</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
-        <!-- MyBatis Spring Boot Starter -->
+        <!-- 显式引入兼容的 nacos-client 2.2.3 -->
+        <dependency>
+            <groupId>com.alibaba.nacos</groupId>
+            <artifactId>nacos-client</artifactId>
+            <version>2.2.3</version>
+        </dependency>
+
+        <!-- MyBatis Spring Boot Starter (Spring Boot 3.2 compatible) -->
         <dependency>
             <groupId>org.mybatis.spring.boot</groupId>
             <artifactId>mybatis-spring-boot-starter</artifactId>
-            <version>2.3.1</version>
+            <version>3.0.3</version>
         </dependency>
 
-        <!-- MySQL Connector -->
+        <!-- Oracle JDBC Driver -->
         <dependency>
-            <groupId>mysql</groupId>
-            <artifactId>mysql-connector-java</artifactId>
-            <version>8.0.33</version>
+            <groupId>com.oracle.database.jdbc</groupId>
+            <artifactId>ojdbc8</artifactId>
+            <version>21.9.0.0</version>
         </dependency>
 
         <!-- Lombok -->
@@ -63,7 +76,7 @@
 
         <!-- Common Core -->
         <dependency>
-            <groupId>com.cxyaqcdm.fta</groupId>
+            <groupId>com.xuelangyun.fta</groupId>
             <artifactId>common-core</artifactId>
             <version>1.0.0</version>
         </dependency>

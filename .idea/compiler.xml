@@ -9,6 +9,7 @@
         <module name="auth-service" />
         <module name="document-ingest-service" />
         <module name="gateway-service" />
+        <module name="log-service" />
         <module name="vector-store-service" />
         <module name="fault-tree-editor-service" />
         <module name="rule-validation-service" />
@@ -27,7 +28,9 @@
       <module name="feedback-learning-service" options="-parameters" />
       <module name="gateway-service" options="-parameters" />
       <module name="knowledge-graph-service" options="-parameters" />
+      <module name="log-service" options="-parameters" />
       <module name="rule-validation-service" options="-parameters" />
+      <module name="vector-store-service" options="-parameters" />
     </option>
   </component>
 </project>

@@ -260,6 +260,41 @@ public class DocumentServiceImpl implements DocumentService {
         }
     }
 
+    @Override
+    public List<Map<String, Object>> getAllDocuments() {
+        List<Map<String, Object>> documents = new ArrayList<>();
+        try {
+            Path storageDir = Paths.get(storagePath);
+            if (!Files.exists(storageDir)) {
+                return documents;
+            }
+            File[] files = storageDir.toFile().listFiles();
+            if (files == null) {
+                return documents;
+            }
+            for (File file : files) {
+                if (file.isFile()) {
+                    String fileName = file.getName();
+                    int underscoreIndex = fileName.indexOf('_');
+                    String docId = underscoreIndex > 0 ? fileName.substring(0, underscoreIndex) : fileName;
+                    String originalFileName = underscoreIndex > 0 ? fileName.substring(underscoreIndex + 1) : fileName;
+
+                    Map<String, Object> doc = new HashMap<>();
+                    doc.put("documentId", docId);
+                    doc.put("fileName", originalFileName);
+                    doc.put("fileType", getFileExtension(originalFileName));
+                    doc.put("size", file.length());
+                    doc.put("uploadTime", java.time.Instant.ofEpochMilli(file.lastModified()).toString());
+                    doc.put("status", "已解析");
+                    documents.add(doc);
+                }
+            }
+        } catch (Exception e) {
+            log.error("Failed to get all documents: {}", e.getMessage());
+        }
+        return documents;
+    }
+
     private String getFileExtension(String fileName) {
         int lastDotIndex = fileName.lastIndexOf('.');
         return lastDotIndex == -1 ? "" : fileName.substring(lastDotIndex + 1);

@@ -5,26 +5,37 @@ spring:
     import: optional:nacos:${spring.application.name}.yaml?namespace=fta-namespace&group=DEFAULT_GROUP&extension=yaml
   cloud:
     nacos:
+      config:
+        server-addr: 127.0.0.1:8848
+        namespace: fta-namespace
+        file-extension: yaml
       discovery:
         server-addr: localhost:8848
         namespace: fta-namespace
         group: DEFAULT_GROUP
   rabbitmq:
-    host: localhost
-    port: 5672
-    username: guest
-    password: guest
+    host: ${rabbitmq.host:localhost}
+    port: ${rabbitmq.port:5672}
+    username: ${rabbitmq.username:guest}
+    password: ${rabbitmq.password:guest}
+    publisher-confirm-type: correlated
+    publisher-returns: true
+    listener:
+      simple:
+        acknowledge-mode: manual
+        prefetch: 10
+        default-requeue-rejected: false
   datasource:
-    url: jdbc:mysql://mysql:3306/fta_vector_store?useSSL=false&serverTimezone=UTC
-    username: root
-    password: 123456
-    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: ${datasource.url:jdbc:oracle:thin:@localhost:1521:XEPDB1}
+    driverClassName: ${datasource.driverClassName:oracle.jdbc.OracleDriver}
+    username: ${datasource.username:fta_user}
+    password: ${datasource.password:123456}
   mybatis:
     mapper-locations: classpath:mapper/*.xml
     type-aliases-package: com.cxyaqcdm.fta.vector.entity
 
 server:
-  port: 8084
+  port: 8090
 
 # 向量模型配置
 vector:

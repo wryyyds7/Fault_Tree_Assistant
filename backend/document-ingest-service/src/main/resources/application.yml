@@ -5,15 +5,26 @@ spring:
     import: optional:nacos:${spring.application.name}.yaml?namespace=fta-namespace&group=DEFAULT_GROUP&extension=yaml
   cloud:
     nacos:
+      config:
+        server-addr: 127.0.0.1:8848
+        namespace: fta-namespace
+        file-extension: yaml
       discovery:
         server-addr: localhost:8848
         namespace: fta-namespace
         group: DEFAULT_GROUP
   rabbitmq:
-    host: localhost
-    port: 5672
-    username: guest
-    password: guest
+    host: ${rabbitmq.host:localhost}
+    port: ${rabbitmq.port:5672}
+    username: ${rabbitmq.username:guest}
+    password: ${rabbitmq.password:guest}
+    publisher-confirm-type: correlated
+    publisher-returns: true
+    listener:
+      simple:
+        acknowledge-mode: manual
+        prefetch: 10
+        default-requeue-rejected: false
   servlet:
     multipart:
       max-file-size: 100MB
@@ -25,6 +36,6 @@ server:
 # 文档存储配置
 document:
   storage:
-    path: ./data/documents
+    path: ${user.home}/fta-data/documents
   ocr:
     tessdata: ./tessdata
