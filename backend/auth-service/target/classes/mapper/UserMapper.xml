@@ -5,7 +5,7 @@
 <mapper namespace="com.cxyaqcdm.fta.auth.mapper.UserMapper">
     <resultMap id="UserResultMap" type="com.cxyaqcdm.fta.auth.entity.UserEntity">
         <id property="id" column="ID"/>
-        <result property="userId" column="USERID"/>
+        <result property="userId" column="USER_ID"/>
         <result property="username" column="USERNAME"/>
         <result property="password" column="PASSWORD"/>
         <result property="email" column="EMAIL"/>
@@ -19,19 +19,19 @@
     </resultMap>
 
     <select id="findById" resultMap="UserResultMap">
-        SELECT * FROM users WHERE ID = #{id}
+        SELECT * FROM users WHERE ID = #{id,jdbcType=BIGINT}
     </select>
 
     <select id="findByUserId" resultMap="UserResultMap">
-        SELECT * FROM users WHERE USERID = #{userId}
+        SELECT * FROM users WHERE USER_ID = #{userId,jdbcType=VARCHAR}
     </select>
 
     <select id="findByUsername" resultMap="UserResultMap">
-        SELECT * FROM users WHERE USERNAME = #{username}
+        SELECT * FROM users WHERE USERNAME = #{username,jdbcType=VARCHAR}
     </select>
 
     <select id="findByEmail" resultMap="UserResultMap">
-        SELECT * FROM users WHERE EMAIL = #{email}
+        SELECT * FROM users WHERE EMAIL = #{email,jdbcType=VARCHAR}
     </select>
 
     <select id="findAll" resultMap="UserResultMap">
@@ -39,36 +39,36 @@
     </select>
 
     <insert id="insert">
-        INSERT INTO users (USERID, USERNAME, PASSWORD, EMAIL, ROLE,
+        INSERT INTO users (USER_ID, USERNAME, PASSWORD, EMAIL, ROLE,
             LAST_LOGIN_TIME, PASSWORD_CHANGE_TIME, FAILED_LOGIN_ATTEMPTS,
             LOCK_TIME, PASSWORD_HISTORY, CREATED_AT)
-        VALUES (#{userId}, #{username}, #{password}, #{email}, #{role},
+        VALUES (#{userId,jdbcType=VARCHAR}, #{username,jdbcType=VARCHAR}, #{password,jdbcType=VARCHAR}, #{email,jdbcType=VARCHAR}, #{role,jdbcType=VARCHAR},
             #{lastLoginTime,jdbcType=TIMESTAMP}, #{passwordChangeTime,jdbcType=TIMESTAMP}, #{failedLoginAttempts,jdbcType=INTEGER},
-            #{lockTime,jdbcType=TIMESTAMP}, #{passwordHistory,jdbcType=VARCHAR}, #{createdAt,jdbcType=TIMESTAMP})
+            #{lockTime,jdbcType=TIMESTAMP}, #{passwordHistory,jdbcType=CLOB}, #{createdAt,jdbcType=TIMESTAMP})
     </insert>
 
     <update id="update">
         UPDATE users
-        SET USERNAME = #{username}, PASSWORD = #{password}, EMAIL = #{email}, ROLE = #{role},
+        SET USERNAME = #{username,jdbcType=VARCHAR}, PASSWORD = #{password,jdbcType=VARCHAR}, EMAIL = #{email,jdbcType=VARCHAR}, ROLE = #{role,jdbcType=VARCHAR},
             LAST_LOGIN_TIME = #{lastLoginTime,jdbcType=TIMESTAMP}, PASSWORD_CHANGE_TIME = #{passwordChangeTime,jdbcType=TIMESTAMP},
             FAILED_LOGIN_ATTEMPTS = #{failedLoginAttempts,jdbcType=INTEGER}, LOCK_TIME = #{lockTime,jdbcType=TIMESTAMP},
-            PASSWORD_HISTORY = #{passwordHistory,jdbcType=VARCHAR}
-        WHERE USERID = #{userId}
+            PASSWORD_HISTORY = #{passwordHistory,jdbcType=CLOB}
+        WHERE USER_ID = #{userId,jdbcType=VARCHAR}
     </update>
 
     <update id="updateLastLoginTime">
         UPDATE users
-        SET LAST_LOGIN_TIME = #{lastLoginTime}
-        WHERE USERID = #{userId}
+        SET LAST_LOGIN_TIME = #{lastLoginTime,jdbcType=TIMESTAMP}
+        WHERE USER_ID = #{userId,jdbcType=VARCHAR}
     </update>
 
     <update id="updateFailedLoginAttempts">
         UPDATE users
-        SET FAILED_LOGIN_ATTEMPTS = #{failedLoginAttempts}
-        WHERE USERID = #{userId}
+        SET FAILED_LOGIN_ATTEMPTS = #{failedLoginAttempts,jdbcType=INTEGER}
+        WHERE USER_ID = #{userId,jdbcType=VARCHAR}
     </update>
 
     <delete id="delete">
-        DELETE FROM users WHERE USERID = #{userId}
+        DELETE FROM users WHERE USER_ID = #{userId,jdbcType=VARCHAR}
     </delete>
 </mapper>

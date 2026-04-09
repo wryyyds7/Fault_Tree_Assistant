@@ -24,6 +24,9 @@ class LLMClient:
     def __init__(self, fallback_enabled: bool = True):
         self.api_key = os.getenv('BAILIAN_API_KEY')
         self.api_url = os.getenv('BAILIAN_API_URL')
+        print("LLMClient initializing...")
+        print("api_key:", self.api_key)
+        print("api_url:", self.api_url)
         self.model = os.getenv('LLM_MODEL', 'qwen-max')
         self.temperature = float(os.getenv('LLM_TEMPERATURE', '0.7'))
         self.max_tokens = int(os.getenv('LLM_MAX_TOKENS', '2000'))

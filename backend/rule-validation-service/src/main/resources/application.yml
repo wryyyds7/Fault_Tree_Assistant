@@ -27,7 +27,7 @@ spring:
         default-requeue-rejected: false
 
 server:
-  port: 8083
+  port: 8093
 
 # 规则引擎配置
 rule:

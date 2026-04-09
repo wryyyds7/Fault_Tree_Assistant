@@ -19,7 +19,7 @@ spring:
         namespace: fta-namespace
         group: DEFAULT_GROUP
 server:
-  port: 8082
+  port: 8092
 
 # 知识图谱配置
 knowledge:

@@ -14,7 +14,7 @@ spring:
         namespace: fta-namespace
         group: DEFAULT_GROUP
   datasource:
-    url: ${datasource.url:jdbc:oracle:thin:@localhost:1521:XEPDB1}
+    url: ${datasource.url:jdbc:oracle:thin:@localhost:1521/XEPDB1}
     driverClassName: ${datasource.driverClassName:oracle.jdbc.OracleDriver}
     username: ${datasource.username:fta_user}
     password: ${datasource.password:123456}

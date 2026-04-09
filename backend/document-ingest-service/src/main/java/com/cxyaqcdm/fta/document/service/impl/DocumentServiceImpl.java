@@ -110,6 +110,7 @@ public class DocumentServiceImpl implements DocumentService {
             message.put("fileName", file.getOriginalFilename());
             message.put("fileType", getFileExtension(file.getOriginalFilename()));
             message.put("userId", userId);
+            message.put("filePath", filePath.toString());
 
             rabbitTemplate.convertAndSend(
                     AmqpConstants.QUEUE_DOCUMENT_PARSE,
@@ -134,15 +135,28 @@ public class DocumentServiceImpl implements DocumentService {
             Boolean persistToKnowledgeBase = (Boolean) message.getOrDefault("persistToKnowledgeBase", true);
             String fileName = (String) message.get("fileName");
             String userId = (String) message.get("userId");
+            String filePathStr = (String) message.get("filePath");
 
             Path storageDir = getStorageDirectory();
             Path userDir = storageDir.resolve(userId != null ? userId : "anonymous");
-            File[] files = userDir.toFile().listFiles((dir, name) -> name.startsWith(docId));
-            if (files == null || files.length == 0) {
-                log.error("Document file not found in directory: {}, docId: {}", userDir, docId);
-                throw new IOException("Document file not found: " + docId);
+            File documentFile = null;
+
+            if (filePathStr != null && !filePathStr.isEmpty()) {
+                documentFile = new File(filePathStr);
+                if (!documentFile.exists()) {
+                    log.warn("File not found at saved path: {}, falling back to search", filePathStr);
+                    documentFile = null;
+                }
             }
-            File documentFile = files[0];
+
+            if (documentFile == null) {
+                File[] files = userDir.toFile().listFiles((dir, name) -> name.startsWith(docId));
+                if (files == null || files.length == 0) {
+                    log.error("Document file not found in directory: {}, docId: {}", userDir, docId);
+                    throw new IOException("Document file not found: " + docId);
+                }
+                documentFile = files[0];
+            }
 
             log.info("Processing document: {}, file: {}", docId, documentFile.getName());
 
@@ -227,8 +241,8 @@ public class DocumentServiceImpl implements DocumentService {
             );
 
             log.info("Document processed successfully: {}, page count: {}", docId, pageCount);
-            
-            Path parsedContentPath = storageDir.resolve(docId + "_parsed.txt");
+
+            Path parsedContentPath = userDir.resolve(docId + "_parsed.txt");
             Files.writeString(parsedContentPath, content);
             log.info("Parsed content saved to: {}", parsedContentPath);
         } catch (Exception e) {
@@ -250,38 +264,46 @@ public class DocumentServiceImpl implements DocumentService {
     }
 
     @Override
-    public Map<String, Object> getDocumentContent(String docId) {
+    public Map<String, Object> getDocumentContent(String docId, String userId) {
         Map<String, Object> result = new HashMap<>();
         try {
             Path storageDir = getStorageDirectory();
-            
-            Path parsedContentPath = storageDir.resolve(docId + "_parsed.txt");
+            String effectiveUserId = userId != null ? userId : "anonymous";
+            Path userDir = storageDir.resolve(effectiveUserId);
+
+            Path parsedContentPath = userDir.resolve(docId + "_parsed.txt");
             String content = "";
+            File originalFile = null;
+
             if (Files.exists(parsedContentPath)) {
                 content = Files.readString(parsedContentPath);
+                File[] originalFiles = userDir.toFile().listFiles((dir, name) -> name.startsWith(docId) && !name.endsWith("_parsed.txt"));
+                if (originalFiles != null && originalFiles.length > 0) {
+                    originalFile = originalFiles[0];
+                }
             } else {
-                File[] files = storageDir.toFile().listFiles((dir, name) -> name.startsWith(docId) && !name.endsWith("_parsed.txt"));
+                File[] files = userDir.toFile().listFiles((dir, name) -> name.startsWith(docId) && !name.endsWith("_parsed.txt"));
                 if (files != null && files.length > 0) {
-                    File documentFile = files[0];
-                    String fileExtension = getFileExtension(documentFile.getName()).toLowerCase();
-                    
+                    originalFile = files[0];
+                    String fileExtension = getFileExtension(originalFile.getName()).toLowerCase();
+
                     try {
                         switch (fileExtension) {
                             case "pdf":
-                                content = parsePdf(documentFile);
+                                content = parsePdf(originalFile);
                                 break;
                             case "txt":
-                                content = parseTxt(documentFile);
+                                content = parseTxt(originalFile);
                                 break;
                             case "docx":
-                                content = parseDocx(documentFile);
+                                content = parseDocx(originalFile);
                                 break;
                             case "xlsx":
                             case "xls":
-                                content = parseExcel(documentFile);
+                                content = parseExcel(originalFile);
                                 break;
                             case "csv":
-                                content = parseCsv(documentFile);
+                                content = parseCsv(originalFile);
                                 break;
                             default:
                                 content = "不支持的文件格式";
@@ -290,15 +312,24 @@ public class DocumentServiceImpl implements DocumentService {
                         log.error("Failed to parse document on demand: {}", e.getMessage());
                         content = "文档解析失败: " + e.getMessage();
                     }
+                } else if (!"anonymous".equals(effectiveUserId)) {
+                    Path anonymousDir = storageDir.resolve("anonymous");
+                    parsedContentPath = anonymousDir.resolve(docId + "_parsed.txt");
+                    if (Files.exists(parsedContentPath)) {
+                        content = Files.readString(parsedContentPath);
+                    }
+                    File[] anonFiles = anonymousDir.toFile().listFiles((dir, name) -> name.startsWith(docId) && !name.endsWith("_parsed.txt"));
+                    if (anonFiles != null && anonFiles.length > 0) {
+                        originalFile = anonFiles[0];
+                    }
                 }
             }
 
             result.put("docId", docId);
             result.put("content", content);
-            
-            File[] originalFiles = storageDir.toFile().listFiles((dir, name) -> name.startsWith(docId) && !name.endsWith("_parsed.txt"));
-            if (originalFiles != null && originalFiles.length > 0) {
-                result.put("fileName", originalFiles[0].getName());
+
+            if (originalFile != null) {
+                result.put("fileName", originalFile.getName());
             }
 
             return result;
@@ -309,20 +340,22 @@ public class DocumentServiceImpl implements DocumentService {
     }
 
     @Override
-    public List<Map<String, Object>> getDocumentParagraphs(String docId) {
+    public List<Map<String, Object>> getDocumentParagraphs(String docId, String userId) {
         try {
             Path storageDir = getStorageDirectory();
-            Path parsedContentPath = storageDir.resolve(docId + "_parsed.txt");
-            
+            String effectiveUserId = userId != null ? userId : "anonymous";
+            Path userDir = storageDir.resolve(effectiveUserId);
+            Path parsedContentPath = userDir.resolve(docId + "_parsed.txt");
+
             String content = "";
             if (Files.exists(parsedContentPath)) {
                 content = Files.readString(parsedContentPath);
             } else {
-                File[] files = storageDir.toFile().listFiles((dir, name) -> name.startsWith(docId) && !name.endsWith("_parsed.txt"));
+                File[] files = userDir.toFile().listFiles((dir, name) -> name.startsWith(docId) && !name.endsWith("_parsed.txt"));
                 if (files != null && files.length > 0) {
                     File documentFile = files[0];
                     String fileExtension = getFileExtension(documentFile.getName()).toLowerCase();
-                    
+
                     try {
                         switch (fileExtension) {
                             case "pdf":
@@ -346,6 +379,42 @@ public class DocumentServiceImpl implements DocumentService {
                         }
                     } catch (Exception e) {
                         log.error("Failed to parse document for paragraphs: {}", e.getMessage());
+                    }
+                } else if (!"anonymous".equals(effectiveUserId)) {
+                    Path anonymousDir = storageDir.resolve("anonymous");
+                    parsedContentPath = anonymousDir.resolve(docId + "_parsed.txt");
+                    if (Files.exists(parsedContentPath)) {
+                        content = Files.readString(parsedContentPath);
+                    } else {
+                        File[] anonFiles = anonymousDir.toFile().listFiles((dir, name) -> name.startsWith(docId) && !name.endsWith("_parsed.txt"));
+                        if (anonFiles != null && anonFiles.length > 0) {
+                            File documentFile = anonFiles[0];
+                            String fileExtension = getFileExtension(documentFile.getName()).toLowerCase();
+                            try {
+                                switch (fileExtension) {
+                                    case "pdf":
+                                        content = parsePdf(documentFile);
+                                        break;
+                                    case "txt":
+                                        content = parseTxt(documentFile);
+                                        break;
+                                    case "docx":
+                                        content = parseDocx(documentFile);
+                                        break;
+                                    case "xlsx":
+                                    case "xls":
+                                        content = parseExcel(documentFile);
+                                        break;
+                                    case "csv":
+                                        content = parseCsv(documentFile);
+                                        break;
+                                    default:
+                                        content = "";
+                                }
+                            } catch (Exception e) {
+                                log.error("Failed to parse anonymous document for paragraphs: {}", e.getMessage());
+                            }
+                        }
                     }
                 }
             }
@@ -377,24 +446,34 @@ public class DocumentServiceImpl implements DocumentService {
                 return documents;
             }
 
-            File[] userDirs;
+            java.util.Set<String> addedDocIds = new java.util.HashSet<>();
+            java.util.List<File> dirsToSearch = new java.util.ArrayList<>();
+
             if (userId == null || userId.isEmpty()) {
-                userDirs = storageDir.toFile().listFiles(File::isDirectory);
+                File[] allDirs = storageDir.toFile().listFiles(File::isDirectory);
+                if (allDirs != null) {
+                    for (File dir : allDirs) {
+                        if (!"anonymous".equals(dir.getName())) {
+                            dirsToSearch.add(dir);
+                        }
+                    }
+                    File anonDir = storageDir.resolve("anonymous").toFile();
+                    if (anonDir.exists()) {
+                        dirsToSearch.add(anonDir);
+                    }
+                }
             } else {
                 Path userDir = storageDir.resolve(userId);
-                if (!Files.exists(userDir)) {
-                    return documents;
+                if (userDir.toFile().exists()) {
+                    dirsToSearch.add(userDir.toFile());
                 }
-                userDirs = new File[]{userDir.toFile()};
+                Path anonDir = storageDir.resolve("anonymous");
+                if (anonDir.toFile().exists()) {
+                    dirsToSearch.add(anonDir.toFile());
+                }
             }
 
-            if (userDirs == null) {
-                return documents;
-            }
-
-            java.util.Set<String> addedDocIds = new java.util.HashSet<>();
-
-            for (File userDir : userDirs) {
+            for (File userDir : dirsToSearch) {
                 String currentUserId = userDir.getName();
                 File[] files = userDir.listFiles();
                 if (files == null) {
@@ -404,7 +483,9 @@ public class DocumentServiceImpl implements DocumentService {
                 for (File file : files) {
                     if (file.isFile() && !file.getName().endsWith("_parsed.txt")) {
                         String fileName = file.getName();
-                        int underscoreIndex = fileName.indexOf('_');
+                        // 跳过 "doc_" 前缀，找下一个 "_" 的位置
+                        int prefixEnd = fileName.startsWith("doc_") ? 4 : 0;
+                        int underscoreIndex = fileName.indexOf('_', prefixEnd);
                         String docId = underscoreIndex > 0 ? fileName.substring(0, underscoreIndex) : fileName;
                         String uniqueKey = currentUserId + ":" + docId;
 
@@ -659,5 +740,62 @@ public class DocumentServiceImpl implements DocumentService {
             case "user_feedback" -> 0.6;
             default -> 0.5;
         };
+    }
+
+    @Override
+    public boolean deleteDocument(String docId, String userId) {
+        log.info("Deleting document: docId={}, userId={}", docId, userId);
+        try {
+            Path storageDir = getStorageDirectory();
+            String effectiveUserId = userId != null ? userId : "anonymous";
+            Path userDir = storageDir.resolve(effectiveUserId);
+
+            boolean deleted = false;
+
+            Path parsedContentPath = userDir.resolve(docId + "_parsed.txt");
+            if (Files.exists(parsedContentPath)) {
+                Files.delete(parsedContentPath);
+                log.info("Deleted parsed content: {}", parsedContentPath);
+                deleted = true;
+            }
+
+            File[] files = userDir.toFile().listFiles((dir, name) -> name.startsWith(docId) && !name.endsWith("_parsed.txt"));
+            if (files != null && files.length > 0) {
+                for (File file : files) {
+                    if (file.delete()) {
+                        log.info("Deleted original file: {}", file.getName());
+                        deleted = true;
+                    } else {
+                        log.warn("Failed to delete file: {}", file.getName());
+                    }
+                }
+            }
+
+            if (!deleted && !"anonymous".equals(effectiveUserId)) {
+                Path anonDir = storageDir.resolve("anonymous");
+                if (anonDir.toFile().exists()) {
+                    parsedContentPath = anonDir.resolve(docId + "_parsed.txt");
+                    if (Files.exists(parsedContentPath)) {
+                        Files.delete(parsedContentPath);
+                        log.info("Deleted anonymous parsed content: {}", parsedContentPath);
+                        deleted = true;
+                    }
+                    File[] anonFiles = anonDir.toFile().listFiles((dir, name) -> name.startsWith(docId) && !name.endsWith("_parsed.txt"));
+                    if (anonFiles != null) {
+                        for (File file : anonFiles) {
+                            if (file.delete()) {
+                                log.info("Deleted anonymous original file: {}", file.getName());
+                                deleted = true;
+                            }
+                        }
+                    }
+                }
+            }
+
+            return deleted;
+        } catch (Exception e) {
+            log.error("Failed to delete document: docId={}, error={}", docId, e.getMessage(), e);
+            return false;
+        }
     }
 }

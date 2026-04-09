@@ -38,7 +38,7 @@
 
     <insert id="insert">
         INSERT INTO paragraph_metadata (paragraph_id, doc_id, section_title, page_number, paragraph_number, text_length, keywords, confidence_score, content, source_type, credibility_weight, created_at, updated_at)
-        VALUES (#{paragraphId}, #{docId}, #{sectionTitle,jdbcType=VARCHAR}, #{pageNumber,jdbcType=INTEGER}, #{paragraphNumber,jdbcType=INTEGER},
+        VALUES (#{paragraphId,jdbcType=VARCHAR}, #{docId,jdbcType=VARCHAR}, #{sectionTitle,jdbcType=VARCHAR}, #{pageNumber,jdbcType=INTEGER}, #{paragraphNumber,jdbcType=INTEGER},
             #{textLength,jdbcType=INTEGER}, #{keywords,jdbcType=VARCHAR}, #{confidenceScore,jdbcType=DOUBLE},
             #{content,jdbcType=CLOB}, #{sourceType,jdbcType=VARCHAR}, #{credibilityWeight,jdbcType=DOUBLE},
             #{createdAt,jdbcType=TIMESTAMP}, #{updatedAt,jdbcType=TIMESTAMP})

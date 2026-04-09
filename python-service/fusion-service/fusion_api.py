@@ -139,7 +139,7 @@ def fuse_documents(request: FusionRequest):
 
     embeddings = None
     try:
-        from industrial_fta_common.rag_service.vector_retriever import VectorRetriever
+        from rag_generation_service.rag_service.vector_retriever import VectorRetriever
         retriever = VectorRetriever()
         embeddings = []
         for para in paragraphs:

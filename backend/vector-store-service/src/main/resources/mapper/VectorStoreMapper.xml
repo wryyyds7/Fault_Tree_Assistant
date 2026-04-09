@@ -39,7 +39,7 @@
 
     <insert id="insert">
         INSERT INTO vector_store (vector_id, paragraph_id, doc_id, vector_data, vector_dimension, embedding_model, similarity_score, created_by, created_at, updated_at)
-        VALUES (#{vectorId}, #{paragraphId}, #{docId}, #{vectorData,jdbcType=CLOB}, #{vectorDimension,jdbcType=INTEGER},
+        VALUES (#{vectorId,jdbcType=VARCHAR}, #{paragraphId,jdbcType=VARCHAR}, #{docId,jdbcType=VARCHAR}, #{vectorData,jdbcType=CLOB}, #{vectorDimension,jdbcType=INTEGER},
             #{embeddingModel,jdbcType=VARCHAR}, #{similarityScore,jdbcType=DOUBLE},
             #{createdBy,jdbcType=VARCHAR}, #{createdAt,jdbcType=TIMESTAMP}, #{updatedAt,jdbcType=TIMESTAMP})
     </insert>

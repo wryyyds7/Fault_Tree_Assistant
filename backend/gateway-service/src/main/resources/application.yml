@@ -72,10 +72,18 @@ spring:
             - StripPrefix=0
 
         # RAG生成服务路由 (Python FastAPI)
+        # 注意：Python服务需要在本地8000端口启动，或修改为实际的服务地址
         - id: rag-generation-service
-          uri: http://rag-generation-service:8000
+          uri: http://localhost:8000
           predicates:
             - Path=/api/v1/rag/**
+          filters:
+            - StripPrefix=0
+
+        - id: log-service
+          uri: lb://log-service
+          predicates:
+            - Path=/api/v1/log/**
           filters:
             - StripPrefix=0
 

@@ -59,10 +59,10 @@
             version, validation_status, validation_message, source_doc_ids, source_detail,
             publish_status, fusion_statistics, generated_by, template_id, created_by, updated_by,
             created_at, updated_at)
-        VALUES (#{treeId}, #{name}, #{description,jdbcType=VARCHAR}, #{equipmentType,jdbcType=VARCHAR}, #{topEvent,jdbcType=VARCHAR}, #{treeData,jdbcType=CLOB},
-            #{version,jdbcType=INTEGER}, #{validationStatus}, #{validationMessage,jdbcType=VARCHAR},
+        VALUES (#{treeId,jdbcType=VARCHAR}, #{name,jdbcType=VARCHAR}, #{description,jdbcType=VARCHAR}, #{equipmentType,jdbcType=VARCHAR}, #{topEvent,jdbcType=VARCHAR}, #{treeData,jdbcType=CLOB},
+            #{version,jdbcType=INTEGER}, #{validationStatus,jdbcType=VARCHAR}, #{validationMessage,jdbcType=VARCHAR},
             #{sourceDocIds,jdbcType=VARCHAR}, #{sourceDetail,jdbcType=VARCHAR},
-            #{publishStatus}, #{fusionStatistics,jdbcType=VARCHAR}, #{generatedBy,jdbcType=VARCHAR},
+            #{publishStatus,jdbcType=VARCHAR}, #{fusionStatistics,jdbcType=VARCHAR}, #{generatedBy,jdbcType=VARCHAR},
             #{templateId,jdbcType=VARCHAR}, #{createdBy,jdbcType=VARCHAR}, #{updatedBy,jdbcType=VARCHAR},
             #{createdAt,jdbcType=TIMESTAMP}, #{updatedAt,jdbcType=TIMESTAMP})
     </insert>

@@ -65,8 +65,13 @@ public class DocumentController {
     }
 
     @GetMapping("/{docId}/content")
-    public ResponseEntity<Map<String, Object>> getDocumentContent(@PathVariable String docId) {
-        Map<String, Object> result = documentService.getDocumentContent(docId);
+    public ResponseEntity<Map<String, Object>> getDocumentContent(
+            @PathVariable String docId,
+            @RequestParam(value = "userId", required = false) String userId) {
+        if (userId == null || userId.isEmpty()) {
+            userId = getCurrentUserId();
+        }
+        Map<String, Object> result = documentService.getDocumentContent(docId, userId);
         if (result == null) {
             return ResponseEntity.notFound().build();
         }
@@ -74,8 +79,13 @@ public class DocumentController {
     }
 
     @GetMapping("/{docId}/paragraphs")
-    public ResponseEntity<List<Map<String, Object>>> getDocumentParagraphs(@PathVariable String docId) {
-        List<Map<String, Object>> paragraphs = documentService.getDocumentParagraphs(docId);
+    public ResponseEntity<List<Map<String, Object>>> getDocumentParagraphs(
+            @PathVariable String docId,
+            @RequestParam(value = "userId", required = false) String userId) {
+        if (userId == null || userId.isEmpty()) {
+            userId = getCurrentUserId();
+        }
+        List<Map<String, Object>> paragraphs = documentService.getDocumentParagraphs(docId, userId);
         return ResponseEntity.ok(paragraphs);
     }
 
@@ -93,5 +103,37 @@ public class DocumentController {
 
         List<Map<String, Object>> documents = documentService.getAllDocuments(userId);
         return ResponseEntity.ok(documents);
+    }
+
+    @DeleteMapping("/{docId}")
+    public ResponseEntity<Map<String, Object>> deleteDocument(
+            @PathVariable String docId,
+            @RequestParam(value = "userId", required = false) String userId) {
+        log.info("Delete document request: docId={}, userId={}", docId, userId);
+        if (userId == null || userId.isEmpty()) {
+            userId = getCurrentUserId();
+        }
+        try {
+            boolean success = documentService.deleteDocument(docId, userId);
+            if (success) {
+                log.info("Document deleted successfully: {}", docId);
+                Map<String, Object> result = new HashMap<>();
+                result.put("status", "success");
+                result.put("message", "文档删除成功");
+                return ResponseEntity.ok(result);
+            } else {
+                log.warn("Document not found or delete failed: {}", docId);
+                Map<String, Object> result = new HashMap<>();
+                result.put("status", "error");
+                result.put("message", "文档不存在或删除失败");
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(result);
+            }
+        } catch (Exception e) {
+            log.error("Delete document exception: docId={}, error={}", docId, e.getMessage(), e);
+            Map<String, Object> errorResult = new HashMap<>();
+            errorResult.put("status", "error");
+            errorResult.put("message", "删除失败: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResult);
+        }
     }
 }

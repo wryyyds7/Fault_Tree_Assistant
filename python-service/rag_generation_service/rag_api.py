@@ -334,8 +334,13 @@ def _generate_fault_tree_sync(task_id: str, top_event: str, doc_ids: List[str], 
             **hybrid_stats
         }
 
-        # 转换为字典
-        fault_tree_dict = fault_tree.dict() if hasattr(fault_tree, 'dict') else fault_tree
+        # 转换为字典 (Pydantic V2 使用 model_dump)
+        if hasattr(fault_tree, 'model_dump'):
+            fault_tree_dict = fault_tree.model_dump()
+        elif hasattr(fault_tree, 'dict'):
+            fault_tree_dict = fault_tree.dict()
+        else:
+            fault_tree_dict = fault_tree
 
         # 转换为驼峰命名（snake_case -> camelCase）
         fault_tree_dict = RagApiConverter.convert_to_camel_case(fault_tree_dict)

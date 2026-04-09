@@ -40,10 +40,16 @@ server:
 # 向量模型配置
 vector:
   model:
-    name: BGE-M3
-  dimension: 768
+    name: text-embedding-v4
+  dimension: 1536
   batch-size: 32
   threshold: 0.7
+  use-local-embedding: false
+
+# Embedding服务配置（Python RAG服务）
+embedding:
+  service:
+    url: ${EMBEDDING_SERVICE_URL:http://localhost:8000}
 
 # 日志配置
 logging:

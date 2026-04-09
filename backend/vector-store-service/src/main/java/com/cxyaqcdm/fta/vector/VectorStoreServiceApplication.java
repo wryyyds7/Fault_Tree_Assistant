@@ -8,7 +8,7 @@ import org.springframework.context.annotation.ComponentScan;
 @SpringBootApplication
 @EnableFeignClients(basePackages = "com.cxyaqcdm.fta.vector.client")
 @ComponentScan(basePackages = {"com.cxyaqcdm.fta.vector", "com.cxyaqcdm.fta.common"})
-public class VectorStoreServiceApplication {
+public class    VectorStoreServiceApplication {
     public static void main(String[] args) {
         SpringApplication.run(VectorStoreServiceApplication.class, args);
     }

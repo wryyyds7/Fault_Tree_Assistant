@@ -28,6 +28,7 @@ public class AmqpConstants {
     public static final String QUEUE_FAULT_TREE_GENERATE_DLQ = "queue.fault-tree.generate.dlq";
 
     // Routing Keys
+    public static final String ROUTING_KEY_DOCUMENT_PARSE_REQUEST = "document.parse.request";
     public static final String ROUTING_KEY_DOCUMENT_PARSED = "document.parsed";
     public static final String ROUTING_KEY_RAG_GENERATED = "rag.generated";
     public static final String ROUTING_KEY_TREE_GENERATED = "tree.generated";

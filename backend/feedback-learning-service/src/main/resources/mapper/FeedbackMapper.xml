@@ -60,10 +60,10 @@
         INSERT INTO feedback (feedback_id, tree_id, user_id, feedback_type, rating, content,
             comments, suggestions, suggested_changes, accuracy_score, completeness_score,
             clarity_score, status, processed_by, processed_at, applied_to_model, created_at)
-        VALUES (#{feedbackId}, #{treeId}, #{userId}, #{feedbackType}, #{rating,jdbcType=DOUBLE}, #{content,jdbcType=VARCHAR},
+        VALUES (#{feedbackId,jdbcType=VARCHAR}, #{treeId,jdbcType=VARCHAR}, #{userId,jdbcType=VARCHAR}, #{feedbackType,jdbcType=VARCHAR}, #{rating,jdbcType=DOUBLE}, #{content,jdbcType=VARCHAR},
             #{comments,jdbcType=VARCHAR}, #{suggestions,jdbcType=VARCHAR}, #{suggestedChanges,jdbcType=VARCHAR},
             #{accuracyScore,jdbcType=DOUBLE}, #{completenessScore,jdbcType=DOUBLE},
-            #{clarityScore,jdbcType=DOUBLE}, #{status}, #{processedBy,jdbcType=VARCHAR},
+            #{clarityScore,jdbcType=DOUBLE}, #{status,jdbcType=VARCHAR}, #{processedBy,jdbcType=VARCHAR},
             #{processedAt,jdbcType=TIMESTAMP}, #{appliedToModel,jdbcType=INTEGER}, #{createdAt,jdbcType=TIMESTAMP})
     </insert>
 
