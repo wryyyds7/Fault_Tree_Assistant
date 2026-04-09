@@ -39,20 +39,20 @@
     </select>
 
     <insert id="insert">
-        INSERT INTO users (USERID, USERNAME, PASSWORD, EMAIL, ROLE, 
-            LAST_LOGIN_TIME, PASSWORD_CHANGE_TIME, FAILED_LOGIN_ATTEMPTS, 
+        INSERT INTO users (USERID, USERNAME, PASSWORD, EMAIL, ROLE,
+            LAST_LOGIN_TIME, PASSWORD_CHANGE_TIME, FAILED_LOGIN_ATTEMPTS,
             LOCK_TIME, PASSWORD_HISTORY, CREATED_AT)
         VALUES (#{userId}, #{username}, #{password}, #{email}, #{role},
-            #{lastLoginTime}, #{passwordChangeTime}, #{failedLoginAttempts},
-            #{lockTime}, #{passwordHistory}, #{createdAt})
+            #{lastLoginTime,jdbcType=TIMESTAMP}, #{passwordChangeTime,jdbcType=TIMESTAMP}, #{failedLoginAttempts,jdbcType=INTEGER},
+            #{lockTime,jdbcType=TIMESTAMP}, #{passwordHistory,jdbcType=VARCHAR}, #{createdAt,jdbcType=TIMESTAMP})
     </insert>
 
     <update id="update">
         UPDATE users
         SET USERNAME = #{username}, PASSWORD = #{password}, EMAIL = #{email}, ROLE = #{role},
-            LAST_LOGIN_TIME = #{lastLoginTime}, PASSWORD_CHANGE_TIME = #{passwordChangeTime},
-            FAILED_LOGIN_ATTEMPTS = #{failedLoginAttempts}, LOCK_TIME = #{lockTime},
-            PASSWORD_HISTORY = #{passwordHistory}
+            LAST_LOGIN_TIME = #{lastLoginTime,jdbcType=TIMESTAMP}, PASSWORD_CHANGE_TIME = #{passwordChangeTime,jdbcType=TIMESTAMP},
+            FAILED_LOGIN_ATTEMPTS = #{failedLoginAttempts,jdbcType=INTEGER}, LOCK_TIME = #{lockTime,jdbcType=TIMESTAMP},
+            PASSWORD_HISTORY = #{passwordHistory,jdbcType=VARCHAR}
         WHERE USERID = #{userId}
     </update>
 

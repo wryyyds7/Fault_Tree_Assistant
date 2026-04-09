@@ -51,6 +51,8 @@ public class AuthServiceImpl implements AuthService {
         response.setRefreshToken(refreshToken);
         response.setTokenType("Bearer");
         response.setExpiresIn(jwtExpiration);
+        response.setUserId(user.getUserId());
+        response.setRole(user.getRole());
 
         return response;
     }
@@ -92,6 +94,8 @@ public class AuthServiceImpl implements AuthService {
 
         return Jwts.builder()
                 .setSubject(user.getUsername())
+                .claim("role", user.getRole())
+                .claim("userId", user.getUserId())
                 .setIssuedAt(now)
                 .setExpiration(expiryDate)
                 .signWith(SignatureAlgorithm.HS512, jwtSecret)
@@ -105,6 +109,8 @@ public class AuthServiceImpl implements AuthService {
 
         return Jwts.builder()
                 .setSubject(user.getUsername())
+                .claim("role", user.getRole())
+                .claim("userId", user.getUserId())
                 .setIssuedAt(now)
                 .setExpiration(expiryDate)
                 .signWith(SignatureAlgorithm.HS512, jwtSecret)
@@ -126,5 +132,17 @@ public class AuthServiceImpl implements AuthService {
     public String getUsernameFromToken(String token) {
         Claims claims = Jwts.parser().setSigningKey(jwtSecret).parseClaimsJws(token).getBody();
         return claims.getSubject();
+    }
+
+    @Override
+    public String getRoleFromToken(String token) {
+        Claims claims = Jwts.parser().setSigningKey(jwtSecret).parseClaimsJws(token).getBody();
+        return claims.get("role", String.class);
+    }
+
+    @Override
+    public String getUserIdFromToken(String token) {
+        Claims claims = Jwts.parser().setSigningKey(jwtSecret).parseClaimsJws(token).getBody();
+        return claims.get("userId", String.class);
     }
 }

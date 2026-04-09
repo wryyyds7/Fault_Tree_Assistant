@@ -1,7 +1,18 @@
 项目路径结构：
 
-- d:\bianchenglianxi\project\Development of a Knowledge-Based Intelligent System for Fault Tree Generation and Assisted Construction of Industrial Equipment\
+- d:\bianchenglianxi\project\Fault_Tree_Assistant\
   - AI_message_getter\
+    - AI路径设置.txt
+    - TODO.txt
+    - 前端开发指南.md
+    - 前端要求（简洁版）.txt
+    - 开发者提示.txt
+    - 功能流程关系图.txt
+    - 混合生成实现方案.md
+    - 控制台记录问题日志.txt
+    - 数据库修改建议.sql
+    - 项目结构详解.txt
+    - 项目路径.txt
     - 总体功能文档
     - 项目要求
   - backend\
@@ -10,54 +21,130 @@
         - main\
           - java\
             - com\
-              - xuelangyun\
+              - cxyaqcdm\
                 - fta\
                   - common\
+                    - aspect\
+                      - OperationLogAspect.java
+                    - client\
+                      - LogServiceClient.java
                     - config\
+                      - AsyncConfig.java
                       - FeignClientConfig.java
+                      - RabbitMQInitializerConfig.java
+                      - WebMvcConfig.java
                     - constants\
                       - AmqpConstants.java
                       - ValidationRuleCode.java
+                    - context\
+                      - UserContext.java
                     - dto\
                       - FaultTreeDTO.java
+                    - entity\
+                      - OperationLog.java
                     - enums\
                       - EventTypeEnum.java
                       - LogicGateEnum.java
+                    - interceptor\
+                      - UserContextInterceptor.java
+                    - listener\
+                      - DeadLetterQueueHandler.java
+                    - util\
+                      - PersistentMessageSender.java
       - pom.xml
     - document-ingest-service\
       - src\
         - main\
           - java\
             - com\
-              - xuelangyun\
+              - cxyaqcdm\
                 - fta\
                   - document\
+                    - client\
+                      - VectorStoreClient.java
+                    - config\
+                      - RabbitMQConfig.java
+                    - controller\
+                      - DocumentController.java
+                    - listener\
+                      - DocumentParseListener.java
+                    - service\
+                      - DocumentService.java
+                      - impl\
+                        - DocumentServiceImpl.java
                     - DocumentIngestServiceApplication.java
           - resources\
             - application.yml
+            - bootstrap.yml
       - pom.xml
     - fault-tree-editor-service\
       - src\
         - main\
           - java\
             - com\
-              - xuelangyun\
+              - cxyaqcdm\
                 - fta\
                   - editor\
+                    - config\
+                      - SecurityConfig.java
+                      - WebSocketConfig.java
+                    - controller\
+                      - FaultTreeEditorController.java
+                      - WebSocketController.java
+                    - entity\
+                      - FaultTreeEntity.java
+                    - mapper\
+                      - FaultTreeMapper.java
+                    - repository\
+                      - FaultTreeRepository.java
+                    - service\
+                      - FaultTreeEditorService.java
+                      - impl\
+                        - FaultTreeEditorServiceImpl.java
                     - FaultTreeEditorServiceApplication.java
           - resources\
+            - mapper\
+              - FaultTreeMapper.xml
             - application.yml
+            - bootstrap.yml
       - pom.xml
     - feedback-learning-service\
       - src\
         - main\
           - java\
             - com\
-              - xuelangyun\
+              - cxyaqcdm\
                 - fta\
                   - feedback\
+                    - controller\
+                      - FeedbackController.java
+                    - entity\
+                      - FeedbackEntity.java
+                    - repository\
+                      - FeedbackRepository.java
+                    - service\
+                      - FeedbackService.java
+                      - impl\
+                        - FeedbackServiceImpl.java
                     - FeedbackLearningServiceApplication.java
           - resources\
+            - application.yml
+            - bootstrap.yml
+      - pom.xml
+    - gateway-service\
+      - src\
+        - main\
+          - java\
+            - com\
+              - cxyaqcdm\
+                - fta\
+                  - gateway\
+                    - config\
+                      - CorsConfig.java
+                      - JwtAuthenticationFilter.java
+                    - GatewayApplication.java
+          - resources\
+            - bootstrap.yml
             - application.yml
       - pom.xml
     - knowledge-graph-service\
@@ -65,74 +152,87 @@
         - main\
           - java\
             - com\
-              - xuelangyun\
+              - cxyaqcdm\
                 - fta\
                   - knowledge\
+                    - controller\
+                      - KnowledgeGraphController.java
+                    - node\
+                      - EventNode.java
+                      - Relationship.java
+                    - repository\
+                      - EventRepository.java
+                      - RelationshipRepository.java
+                    - service\
+                      - KnowledgeGraphService.java
+                      - impl\
+                        - KnowledgeGraphServiceImpl.java
                     - KnowledgeGraphServiceApplication.java
           - resources\
             - application.yml
+            - bootstrap.yml
       - pom.xml
     - rule-validation-service\
       - src\
         - main\
           - java\
             - com\
-              - xuelangyun\
+              - cxyaqcdm\
                 - fta\
                   - validation\
-                    - RuleValidationServiceApplication.java
-          - resources\
-            - application.yml
-      - pom.xml
-    - auth-service\
-      - src\
-        - main\
-          - java\
-            - com\
-              - xuelangyun\
-                - fta\
-                  - auth\
-                    - AuthServiceApplication.java
-                    - controller\
-                      - AuthController.java
-                    - service\
-                      - AuthService.java
-                      - impl\
-                        - AuthServiceImpl.java
-                    - entity\
-                      - UserEntity.java
-                    - repository\
-                      - UserRepository.java
                     - config\
-                      - SecurityConfig.java
-                    - dto\
-                      - LoginRequest.java
-                      - LoginResponse.java
-                      - RegisterRequest.java
+                      - DroolsConfig.java
+                    - controller\
+                      - ValidationController.java
+                    - drools\
+                      - RuleValidator.java
+                    - service\
+                      - RuleValidationService.java
+                      - impl\
+                        - RuleValidationServiceImpl.java
+                    - ValidationServiceApplication.java
           - resources\
-            - bootstrap.yml
             - application.yml
+            - bootstrap.yml
+            - rules\
+              - fault-tree-validation.drl
       - pom.xml
-    - gateway-service\
+    - vector-store-service\
       - src\
         - main\
           - java\
             - com\
-              - xuelangyun\
+              - cxyaqcdm\
                 - fta\
-                  - gateway\
-                    - GatewayServiceApplication.java
+                  - vector\
+                    - client\
+                      - EmbeddingClient.java
+                    - controller\
+                      - VectorStoreController.java
+                    - entity\
+                      - DocumentMetadata.java
+                      - ParagraphMetadata.java
+                      - VectorStore.java
+                    - mapper\
+                      - DocumentMetadataMapper.java
+                      - ParagraphMetadataMapper.java
+                      - VectorStoreMapper.java
+                    - repository\
+                      - DocumentMetadataRepository.java
+                      - ParagraphMetadataRepository.java
+                      - VectorStoreRepository.java
+                    - service\
+                      - VectorStoreService.java
+                      - impl\
+                        - VectorStoreServiceImpl.java
+                    - VectorStoreServiceApplication.java
           - resources\
-            - bootstrap.yml
+            - mapper\
+              - DocumentMetadataMapper.xml
+              - ParagraphMetadataMapper.xml
+              - VectorStoreMapper.xml
             - application.yml
       - pom.xml
-    - Dockerfile.common
-    - Dockerfile.document-ingest
-    - Dockerfile.fault-tree-editor
-    - Dockerfile.feedback-learning
-    - Dockerfile.knowledge-graph
-    - Dockerfile.rule-validation
-    - pom.xml
   - data\
     - 故障树案例数据画布内表现形式（供参考）.JSON
     - 故障树画布内视觉形态（供参考）.jpg
@@ -140,32 +240,46 @@
     - 通用型驱动系统故障数据（原始数据）.pdf
   - frontend\
     - src\
+      - api\
+        - index.js
+      - components\
+        - FaultTreeChart.vue
+        - SourceDetail.vue
+        - ValidationResult.vue
       - router\
         - index.js
       - views\
         - Document.vue
         - FaultTree.vue
         - FaultTreeEdit.vue
+        - Feedback.vue
         - Home.vue
         - KnowledgeGraph.vue
+        - Login.vue
       - App.vue
       - main.js
-    - Dockerfile
-    - index.html
-    - package-lock.json
     - package.json
     - vite.config.js
   - python-service\
+    - rag-generation-service\
+      - rag_service\
+        - fault_tree_generator.py
+        - hybrid_generator.py
+        - knowledge_graph_client.py
+        - llm_client.py
+        - rag_consumer.py
+      - rag_api.py
+      - .env
     - industrial_fta_common\
       - fault_tree_schema.py
       - llm_prompt_templates.py
       - message_utils.py
-    - rag-generation-service\
-      - rag_service\
-        - fault_tree_generator.py
-      - .env
-      - Dockerfile
-      - rag_service.py
-  - README.md
+  - sql\
+    - auth_db.sql
+    - complete_oracle_schema.sql
+    - fta_db.sql
+    - feedback_db.sql
   - docker-compose.yml
+  - pom.xml
+  - README.md
   - start.sh

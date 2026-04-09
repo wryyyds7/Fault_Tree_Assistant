@@ -15,10 +15,10 @@ public class SecurityConfig {
         http
             .csrf().disable()
             .authorizeExchange()
-            .pathMatchers("/api/v1/auth/**", "/api/v1/documents/**", "/api/v1/kg/**", "/api/v1/validation/**", "/api/v1/fault-trees/**", "/api/v1/feedback/**", "/api/v1/vector/**", "/api/v1/rag/**").permitAll()
+            .pathMatchers("/api/v1/auth/**", "/api/v1/documents/**", "/api/v1/kg/**", "/api/v1/validation/**", "/api/v1/fault-trees/**", "/api/v1/feedback/**", "/api/v1/vector/**", "/api/v1/rag/**", "/api/v1/stats/**").permitAll()
             .pathMatchers("/ws/fault-tree/**").permitAll()
             .pathMatchers("/actuator/**").permitAll()
-            .anyExchange().authenticated();
+            .anyExchange().permitAll();
 
         return http.build();
     }

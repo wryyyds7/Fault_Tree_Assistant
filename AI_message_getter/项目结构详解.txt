@@ -1,648 +1,472 @@
-项目结构详解：
+================================================================================
+                    故障树智能生成系统 - 项目结构详解
+================================================================================
 
-- backend
-	- common-core
-		- src/main/java/com/xuelangyun/fta/common/config/FeignClientConfig.java
-			- 文件作用为：配置Feign客户端，用于服务间的同步调用
-			- 应被调用文件为：各服务的Feign接口
-			- 已实现：Feign客户端配置
-			- 未实现：无
-		- src/main/java/com/xuelangyun/fta/common/constants/AmqpConstants.java
-			- 文件作用为：定义RabbitMQ相关的常量
-			- 应被调用文件为：各服务的消息队列配置
-			- 已实现：常量定义
-			- 未实现：无
-		- src/main/java/com/xuelangyun/fta/common/constants/ValidationRuleCode.java
-			- 文件作用为：定义故障树验证规则的错误代码
-			- 应被调用文件为：rule-validation-service
-			- 已实现：错误代码定义
-			- 未实现：无
-		- src/main/java/com/xuelangyun/fta/common/dto/FaultTreeDTO.java
-			- 文件作用为：定义故障树的数据传输对象
-			- 应被调用文件为：各服务的故障树相关接口
-			- 已实现：故障树DTO定义（含置信度、位置、溯源等前端必需字段）
-			- 未实现：无
-			- 扩展字段：
-				- confidence: Double (AI置信度)
-				- verificationStatus: String (验证状态)
-				- aiGenerated: Boolean (是否AI生成)
-				- position: PositionDTO (节点位置)
-				- parentId: String (父节点ID)
-				- expanded: Boolean (展开/折叠)
-				- sourceDetail: SourceDetailDTO (溯源详情)
-		- src/main/java/com/xuelangyun/fta/common/enums/EventTypeEnum.java
-			- 文件作用为：定义事件类型枚举
-			- 应被调用文件为：各服务的事件处理逻辑
-			- 已实现：事件类型枚举定义
-			- 未实现：无
-		- src/main/java/com/xuelangyun/fta/common/enums/LogicGateEnum.java
-			- 文件作用为：定义逻辑门类型枚举
-			- 应被调用文件为：各服务的逻辑门处理逻辑
-			- 已实现：逻辑门类型枚举定义
-			- 未实现：无
-		- pom.xml
-			- 文件作用为：定义common-core模块的依赖
-			- 应被调用文件为：各服务的pom.xml
-			- 已实现：依赖配置（包含Nacos Config、Nacos Discovery、MyBatis、MySQL驱动依赖）
-			- 未实现：无
-	- document-ingest-service
-		- src/main/java/com/xuelangyun/fta/document/DocumentIngestServiceApplication.java
-			- 文件作用为：文档摄入服务的启动类
-			- 应被调用文件为：无
-			- 已实现：服务启动配置
-			- 未实现：无
-		- src/main/java/com/xuelangyun/fta/document/service/impl/DocumentServiceImpl.java
-			- 文件作用为：文档服务的实现类，负责文档上传和解析
-			- 应被调用文件为：DocumentController.java
-			- 已实现：真实的文档解析逻辑（支持PDF、TXT、DOCX），已移除模拟数据
-			- 未实现：无
-		- src/main/java/com/xuelangyun/fta/document/listener/DocumentParseListener.java
-			- 文件作用为：RabbitMQ监听器，处理文档解析任务
-			- 应被调用文件为：DocumentServiceImpl.java
-			- 已实现：监听队列并调用解析服务
-			- 未实现：无
-		- src/main/resources/bootstrap.yml
-			- 文件作用为：Nacos配置文件
-			- 应被调用文件为：服务启动时自动加载
-			- 已实现：Nacos配置（server-addr、namespace、group）
-			- 未实现：无
-		- src/main/resources/application.yml
-			- 文件作用为：文档摄入服务的配置文件
-			- 应被调用文件为：服务启动时自动加载
-			- 已实现：服务配置（支持Nacos配置中心变量）
-			- 未实现：无
-		- pom.xml
-			- 文件作用为：定义document-ingest-service模块的依赖
-			- 应被调用文件为：无
-			- 已实现：依赖配置
-			- 未实现：无
-	- fault-tree-editor-service
-		- src/main/java/com/xuelangyun/fta/editor/FaultTreeEditorServiceApplication.java
-			- 文件作用为：故障树编辑器服务的启动类
-			- 应被调用文件为：无
-			- 已实现：服务启动配置
-			- 未实现：无
-		- src/main/java/com/xuelangyun/fta/editor/controller/FaultTreeEditorController.java
-			- 文件作用为：故障树编辑器控制器
-			- 应被调用文件为：无
-			- 已实现：故障树CRUD API + 节点细粒度操作API
-			- 未实现：无
-			- 新增API：
-				- POST /{treeId}/nodes (添加节点)
-				- PUT /{treeId}/nodes (更新节点)
-				- DELETE /{treeId}/nodes/{eventId} (删除节点)
-				- PUT /{treeId}/nodes/{eventId}/move (移动节点)
-				- PUT /{treeId}/positions (批量更新位置)
-				- PUT /{treeId}/nodes/{eventId}/confidence (更新置信度)
-				- PUT /{treeId}/nodes/{eventId}/verification (更新验证状态)
-			- 修复：移除硬编码userId，通过SecurityContextHolder获取
-		- src/main/java/com/xuelangyun/fta/editor/service/FaultTreeEditorService.java
-			- 文件作用为：故障树编辑器服务接口
-			- 应被调用文件为：FaultTreeEditorController.java
-			- 已实现：故障树CRUD + 节点操作方法
-			- 未实现：无
-		- src/main/java/com/xuelangyun/fta/editor/service/impl/FaultTreeEditorServiceImpl.java
-			- 文件作用为：故障树编辑器服务实现类
-			- 应被调用文件为：FaultTreeEditorController.java
-			- 已实现：故障树CRUD操作 + 节点细粒度操作（递归树遍历）
-			- 未实现：无
-		- src/main/java/com/xuelangyun/fta/editor/mapper/FaultTreeMapper.java
-			- 文件作用为：故障树数据访问接口
-			- 应被调用文件为：FaultTreeEditorServiceImpl.java
-			- 已实现：故障树数据访问方法
-			- 未实现：无
-		- src/main/resources/mapper/FaultTreeMapper.xml
-			- 文件作用为：故障树数据访问SQL映射
-			- 应被调用文件为：FaultTreeMapper.java
-			- 已实现：SQL语句定义
-			- 未实现：无
-		- src/main/resources/bootstrap.yml
-			- 文件作用为：Nacos配置文件
-			- 应被调用文件为：服务启动时自动加载
-			- 已实现：Nacos配置（server-addr、namespace、group）
-			- 未实现：无
-		- src/main/resources/application.yml
-			- 文件作用为：故障树编辑器服务的配置文件
-			- 应被调用文件为：服务启动时自动加载
-			- 已实现：服务配置（支持Nacos配置中心变量）
-			- 未实现：无
-		- pom.xml
-			- 文件作用为：定义fault-tree-editor-service模块的依赖
-			- 应被调用文件为：无
-			- 已实现：依赖配置
-			- 未实现：无
-	- feedback-learning-service
-		- src/main/java/com/xuelangyun/fta/feedback/FeedbackLearningServiceApplication.java
-			- 文件作用为：反馈学习服务的启动类
-			- 应被调用文件为：无
-			- 已实现：服务启动配置
-			- 未实现：无
-		- src/main/java/com/xuelangyun/fta/feedback/service/impl/FeedbackLearningServiceImpl.java
-			- 文件作用为：反馈学习服务的实现类，负责反馈处理和模型优化
-			- 应被调用文件为：FeedbackLearningController.java
-			- 已实现：完整的反馈处理、批量分析、模型优化和优化建议生成功能
-			- 未实现：无
-		- src/main/java/com/xuelangyun/fta/feedback/mapper/FeedbackMapper.java
-			- 文件作用为：反馈数据访问接口
-			- 应被调用文件为：FeedbackLearningServiceImpl.java
-			- 已实现：反馈数据访问方法（包含findTopNByOrderByCreatedAtDesc方法）
-			- 未实现：无
-		- src/main/resources/mapper/FeedbackMapper.xml
-			- 文件作用为：反馈数据访问SQL映射
-			- 应被调用文件为：FeedbackMapper.java
-			- 已实现：SQL语句定义
-			- 未实现：无
-		- src/main/resources/bootstrap.yml
-			- 文件作用为：Nacos配置文件
-			- 应被调用文件为：服务启动时自动加载
-			- 已实现：Nacos配置（server-addr、namespace、group）
-			- 未实现：无
-		- src/main/resources/application.yml
-			- 文件作用为：反馈学习服务的配置文件
-			- 应被调用文件为：服务启动时自动加载
-			- 已实现：服务配置（支持Nacos配置中心变量）
-			- 未实现：无
-		- pom.xml
-			- 文件作用为：定义feedback-learning-service模块的依赖
-			- 应被调用文件为：无
-			- 已实现：依赖配置
-			- 未实现：无
-	- knowledge-graph-service
-		- src/main/java/com/xuelangyun/fta/knowledge/KnowledgeGraphServiceApplication.java
-			- 文件作用为：知识图谱服务的启动类
-			- 应被调用文件为：无
-			- 已实现：服务启动配置
-			- 未实现：无
-		- src/main/java/com/xuelangyun/fta/knowledge/service/impl/KnowledgeGraphServiceImpl.java
-			- 文件作用为：知识图谱服务的实现类，负责知识图谱的查询和丰富
-			- 应被调用文件为：KnowledgeGraphController.java
-			- 已实现：Neo4j关系创建逻辑、ISO 13379本体加载、默认事件关系构建
-			- 未实现：无
-		- src/main/java/com/xuelangyun/fta/knowledge/entity/Event.java
-			- 文件作用为：知识图谱事件实体类
-			- 应被调用文件为：KnowledgeGraphServiceImpl.java
-			- 已实现：事件实体定义
-			- 未实现：无
-		- src/main/java/com/xuelangyun/fta/knowledge/repository/EventRepository.java
-			- 文件作用为：知识图谱事件仓库接口
-			- 应被调用文件为：KnowledgeGraphServiceImpl.java
-			- 已实现：事件数据访问
-			- 未实现：无
-		- src/main/resources/bootstrap.yml
-			- 文件作用为：Nacos配置文件
-			- 应被调用文件为：服务启动时自动加载
-			- 已实现：Nacos配置（server-addr、namespace、group）
-			- 未实现：无
-		- src/main/resources/application.yml
-			- 文件作用为：知识图谱服务的配置文件
-			- 应被调用文件为：服务启动时自动加载
-			- 已实现：服务配置（支持Nacos配置中心变量）
-			- 未实现：无
-		- pom.xml
-			- 文件作用为：定义knowledge-graph-service模块的依赖
-			- 应被调用文件为：无
-			- 已实现：依赖配置
-			- 未实现：无
-	- rule-validation-service
-		- src/main/java/com/xuelangyun/fta/validation/RuleValidationServiceApplication.java
-			- 文件作用为：规则验证服务的启动类
-			- 应被调用文件为：无
-			- 已实现：服务启动配置
-			- 未实现：无
-		- src/main/java/com/xuelangyun/fta/validation/controller/RuleValidationController.java
-			- 文件作用为：规则验证控制器
-			- 应被调用文件为：无
-			- 已实现：验证API和RabbitMQ监听器
-			- 未实现：无
-		- src/main/java/com/xuelangyun/fta/validation/dto/ValidationResultDTO.java
-			- 文件作用为：验证结果DTO
-			- 应被调用文件为：RuleValidationController.java
-			- 已实现：验证结果 + errorType + suggestion (优化建议)
-			- 未实现：无
-		- src/main/java/com/xuelangyun/fta/validation/service/impl/RuleValidationServiceImpl.java
-			- 文件作用为：规则验证服务实现类
-			- 应被调用文件为：RuleValidationController.java
-			- 已实现：校验逻辑 + 错误类型和建议
-			- 未实现：无
-		- src/main/resources/bootstrap.yml
-			- 文件作用为：Nacos配置文件
-			- 应被调用文件为：服务启动时自动加载
-			- 已实现：Nacos配置（server-addr、namespace、group）
-			- 未实现：无
-		- src/main/resources/application.yml
-			- 文件作用为：规则验证服务的配置文件
-			- 应被调用文件为：服务启动时自动加载
-			- 已实现：服务配置（支持Nacos配置中心变量）
-			- 未实现：无
-		- pom.xml
-			- 文件作用为：定义rule-validation-service模块的依赖
-			- 应被调用文件为：无
-			- 已实现：依赖配置
-			- 未实现：无
-	- auth-service
-		- src/main/java/com/xuelangyun/fta/auth/AuthServiceApplication.java
-			- 文件作用为：认证服务的启动类
-			- 应被调用文件为：无
-			- 已实现：服务启动配置
-			- 未实现：无
-		- src/main/java/com/xuelangyun/fta/auth/controller/AuthController.java
-			- 文件作用为：认证控制器，处理用户登录和注册
-			- 应被调用文件为：无
-			- 已实现：登录和注册API
-			- 未实现：无
-		- src/main/java/com/xuelangyun/fta/auth/service/impl/AuthServiceImpl.java
-			- 文件作用为：认证服务实现类，负责JWT token生成和验证
-			- 应被调用文件为：AuthController.java
-			- 已实现：JWT token生成、验证和刷新功能，密码加密
-			- 未实现：无
-		- src/main/java/com/xuelangyun/fta/auth/entity/UserEntity.java
-			- 文件作用为：用户实体类
-			- 应被调用文件为：AuthServiceImpl.java
-			- 已实现：用户数据模型
-			- 未实现：无
-		- src/main/java/com/xuelangyun/fta/auth/mapper/UserMapper.java
-			- 文件作用为：用户数据访问接口
-			- 应被调用文件为：AuthServiceImpl.java
-			- 已实现：用户数据访问方法
-			- 未实现：无
-		- src/main/resources/mapper/UserMapper.xml
-			- 文件作用为：用户数据访问SQL映射
-			- 应被调用文件为：UserMapper.java
-			- 已实现：SQL语句定义
-			- 未实现：无
-		- src/main/java/com/xuelangyun/fta/auth/config/SecurityConfig.java
-			- 文件作用为：Spring Security配置类
-			- 应被调用文件为：无
-			- 已实现：安全配置和密码加密
-			- 未实现：无
-		- src/main/resources/bootstrap.yml
-			- 文件作用为：Nacos配置文件
-			- 应被调用文件为：服务启动时自动加载
-			- 已实现：Nacos配置（server-addr、namespace、group）
-			- 未实现：无
-		- src/main/resources/application.yml
-			- 文件作用为：认证服务的配置文件
-			- 应被调用文件为：服务启动时自动加载
-			- 已实现：JWT配置和安全设置
-			- 未实现：无
-		- pom.xml
-			- 文件作用为：定义auth-service模块的依赖
-			- 应被调用文件为：无
-			- 已实现：依赖配置（Spring Security、JJWT）
-			- 未实现：无
-	- vector-store-service
-		- src/main/java/com/xuelangyun/fta/vector/VectorStoreServiceApplication.java
-			- 文件作用为：向量存储服务的启动类
-			- 应被调用文件为：无
-			- 已实现：服务启动配置
-			- 未实现：无
-		- src/main/java/com/xuelangyun/fta/vector/controller/VectorStoreController.java
-			- 文件作用为：向量存储控制器
-			- 应被调用文件为：无
-			- 已实现：向量CRUD + 溯源证据API
-			- 未实现：无
-			- 新增API：
-				- GET /paragraphs/{paragraphId}/evidence (获取溯源证据)
-				- POST /search-with-evidence (带溯源的搜索)
-		- src/main/java/com/xuelangyun/fta/vector/service/VectorStoreService.java
-			- 文件作用为：向量存储服务接口
-			- 应被调用文件为：VectorStoreController.java
-			- 已实现：向量操作 + 溯源证据方法
-			- 未实现：无
-		- src/main/java/com/xuelangyun/fta/vector/service/impl/VectorStoreServiceImpl.java
-			- 文件作用为：向量存储服务实现类
-			- 应被调用文件为：VectorStoreController.java
-			- 已实现：向量操作 + getParagraphEvidence() + searchWithEvidence()
-			- 未实现：无
-		- src/main/java/com/xuelangyun/fta/vector/entity/*.java
-			- 文件作用为：向量存储相关实体类
-			- 应被调用文件为：VectorStoreServiceImpl.java
-			- 已实现：DocumentMetadata, ParagraphMetadata, VectorStore
-			- 未实现：无
-		- pom.xml
-			- 文件作用为：定义vector-store-service模块的依赖
-			- 应被调用文件为：无
-			- 已实现：依赖配置
-			- 未实现：无
-	- gateway-service
-		- src/main/java/com/xuelangyun/fta/gateway/GatewayServiceApplication.java
-			- 文件作用为：网关服务的启动类
-			- 应被调用文件为：无
-			- 已实现：服务启动配置
-			- 未实现：无
-		- src/main/resources/bootstrap.yml
-			- 文件作用为：Nacos配置文件
-			- 应被调用文件为：服务启动时自动加载
-			- 已实现：Nacos配置（server-addr、namespace、group）
-			- 未实现：无
-		- src/main/resources/application.yml
-			- 文件作用为：网关服务的配置文件
-			- 应被调用文件为：服务启动时自动加载
-			- 已实现：路由配置（所有服务的路由规则，包含vector-store和rag-service）
-			- 未实现：无
-			- 新增路由：
-				- vector-store-service: /api/v1/vector/**
-				- rag-generation-service: /api/v1/rag/**
-		- pom.xml
-			- 文件作用为：定义gateway-service模块的依赖
-			- 应被调用文件为：无
-			- 已实现：依赖配置（Spring Cloud Gateway）
-			- 未实现：无
-	- Dockerfile.common
-		- 文件作用为：通用的Java服务Dockerfile模板
-		- 应被调用文件为：无
-		- 已实现：Dockerfile配置
-		- 未实现：无
-	- Dockerfile.document-ingest
-		- 文件作用为：文档摄入服务的Dockerfile
-		- 应被调用文件为：docker-compose.yml
-		- 已实现：Dockerfile配置
-		- 未实现：无
-	- Dockerfile.fault-tree-editor
-		- 文件作用为：故障树编辑器服务的Dockerfile
-		- 应被调用文件为：docker-compose.yml
-		- 已实现：Dockerfile配置
-		- 未实现：无
-	- Dockerfile.feedback-learning
-		- 文件作用为：反馈学习服务的Dockerfile
-		- 应被调用文件为：docker-compose.yml
-		- 已实现：Dockerfile配置
-		- 未实现：无
-	- Dockerfile.knowledge-graph
-		- 文件作用为：知识图谱服务的Dockerfile
-		- 应被调用文件为：docker-compose.yml
-		- 已实现：Dockerfile配置
-		- 未实现：无
-	- Dockerfile.rule-validation
-		- 文件作用为：规则验证服务的Dockerfile
-		- 应被调用文件为：docker-compose.yml
-		- 已实现：Dockerfile配置
-		- 未实现：无
-	- pom.xml
-		- 文件作用为：定义整个backend模块的依赖和模块结构
-		- 应被调用文件为：无
-		- 已实现：依赖和模块配置（包含所有7个服务模块）
-		- 未实现：无
-- data
-	- 故障树案例数据画布内表现形式（供参考）.JSON
-		- 文件作用为：故障树案例数据的JSON格式示例
-		- 应被调用文件为：无
-		- 已实现：示例数据
-		- 未实现：无
-	- 故障树画布内视觉形态（供参考）.jpg
-		- 文件作用为：故障树画布内视觉形态的示例图片
-		- 应被调用文件为：无
-		- 已实现：示例图片
-		- 未实现：无
-	- 通用型驱动系统故障数据
-		- 文件作用为：通用型驱动系统的故障数据
-		- 应被调用文件为：无
-		- 已实现：故障数据
-		- 未实现：无
-	- 通用型驱动系统故障数据（原始数据）.pdf
-		- 文件作用为：通用型驱动系统故障数据的原始PDF文件
-		- 应被调用文件为：无
-		- 已实现：原始数据文件
-		- 未实现：无
-- frontend
-	- src/router/index.js
-		- 文件作用为：前端路由配置
-		- 应被调用文件为：main.js
-		- 已实现：路由配置
-		- 未实现：无
-	- src/views/Document.vue
-		- 文件作用为：文档上传和管理页面
-		- 应被调用文件为：router/index.js
-		- 已实现：文档管理页面
-		- 未实现：无
-	- src/views/FaultTree.vue
-		- 文件作用为：故障树列表页面
-		- 应被调用文件为：router/index.js
-		- 已实现：故障树列表页面
-		- 未实现：无
-	- src/views/FaultTreeEdit.vue
-		- 文件作用为：故障树编辑页面
-		- 应被调用文件为：router/index.js
-		- 已实现：故障树编辑页面
-		- 未实现：无
-	- src/views/Home.vue
-		- 文件作用为：首页
-		- 应被调用文件为：router/index.js
-		- 已实现：首页
-		- 未实现：无
-	- src/views/KnowledgeGraph.vue
-		- 文件作用为：知识图谱页面
-		- 应被调用文件为：router/index.js
-		- 已实现：知识图谱页面
-		- 未实现：无
-	- src/App.vue
-		- 文件作用为：前端应用的根组件
-		- 应被调用文件为：main.js
-		- 已实现：根组件
-		- 未实现：无
-	- src/main.js
-		- 文件作用为：前端应用的入口文件
-		- 应被调用文件为：无
-		- 已实现：入口文件
-		- 未实现：无
-	- Dockerfile
-		- 文件作用为：前端服务的Dockerfile
-		- 应被调用文件为：docker-compose.yml
-		- 已实现：Dockerfile配置
-		- 未实现：无
-	- index.html
-		- 文件作用为：前端应用的HTML模板
-		- 应被调用文件为：无
-		- 已实现：HTML模板
-		- 未实现：无
-	- package-lock.json
-		- 文件作用为：前端依赖的锁定文件
-		- 应被调用文件为：无
-		- 已实现：依赖锁定
-		- 未实现：无
-	- package.json
-		- 文件作用为：前端项目的配置文件
-		- 应被调用文件为：无
-		- 已实现：项目配置
-		- 未实现：无
-	- vite.config.js
-		- 文件作用为：Vite构建工具的配置文件
-		- 应被调用文件为：无
-		- 已实现：构建配置
-		- 未实现：无
-- python-service
-	- industrial_fta_common
-		- fault_tree_schema.py
-			- 文件作用为：定义故障树的Python数据模型
-			- 应被调用文件为：rag_service.py
-			- 已实现：故障树数据模型
-			- 未实现：无
-		- llm_prompt_templates.py
-			- 文件作用为：定义LLM提示词模板
-			- 应被调用文件为：rag_service.py
-			- 已实现：提示词模板
-			- 未实现：无
-		- message_utils.py
-			- 文件作用为：消息处理工具
-			- 应被调用文件为：rag_service.py
-			- 已实现：消息处理工具
-			- 未实现：无
-	- rag-generation-service
-		- rag_service/fault_tree_generator.py
-			- 文件作用为：故障树生成器
-			- 应被调用文件为：rag_service.py, rag_api.py
-			- 已实现：故障树生成逻辑
-			- 未实现：无
-		- rag_service.py
-			- 文件作用为：RAG生成服务的主文件（RabbitMQ消费者）
-			- 应被调用文件为：无
-			- 已实现：RAG服务逻辑
-			- 未实现：无
-		- rag_api.py
-			- 文件作用为：RAG生成服务的FastAPI HTTP接口
-			- 应被调用文件为：无
-			- 已实现：HTTP API for 前端触发生成
-			- 未实现：无
-			- 暴露API：
-				- POST /api/v1/rag/generate (触发生成)
-				- GET /api/v1/rag/tasks/{task_id} (获取状态)
-				- GET /api/v1/rag/evidence/{paragraph_id} (溯源证据)
-				- POST /api/v1/rag/evidence (事件溯源列表)
-		- requirements.txt
-			- 文件作用为：Python依赖
-			- 已实现：fastapi, uvicorn新增
-			- 未实现：无
-		- .env
-			- 文件作用为：环境变量配置文件
-			- 应被调用文件为：rag_service.py, rag_api.py
-			- 已实现：环境变量配置
-			- 未实现：无
-		- Dockerfile
-			- 文件作用为：RAG生成服务的Dockerfile
-			- 应被调用文件为：docker-compose.yml
-			- 已实现：Dockerfile配置
-			- 未实现：无
-- README.md
-	- 文件作用为：项目说明文档
-	- 应被调用文件为：无
-	- 已实现：项目说明
-	- 未实现：无
-- docker-compose.yml
-	- 文件作用为：Docker Compose配置文件，用于编排所有服务
-	- 应被调用文件为：start.sh
-	- 已实现：服务编排配置
-	- 未实现：无
-- start.sh
-	- 文件作用为：启动脚本，用于启动所有服务
-	- 应被调用文件为：无
-	- 已实现：启动脚本
-	- 未实现：无
+【更新日期】2026-04-08
+【项目路径】d:\bianchenglianxi\project\Fault_Tree_Assistant
 
-## 未完成的部分
+================================================================================
+一、项目技术架构
+================================================================================
 
-### 配置信息
-1. **JWT密钥**
-   - 位置：gateway-service/src/main/java/com/xuelangyun/fta/gateway/config/JwtAuthenticationFilter.java
-   - 问题：使用了硬编码的临时密钥 "your-secret-key"
-   - 位置：auth-service/src/main/resources/application.yml
-   - 问题：JWT密钥使用了默认值 "your-secret-key"
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                              技术栈概览                                          │
+└─────────────────────────────────────────────────────────────────────────────────┘
 
-2. **数据库密码**
-   - 位置：多个服务的application.yml文件
-   - 问题：使用了默认密码 "password"
-   - 涉及服务：auth-service、fault-tree-editor-service、feedback-learning-service
+  前端技术：
+  ├── Vue 3.4+ (渐进式JavaScript框架)
+  ├── Vue Router 4.2+ (路由管理)
+  ├── Element Plus 2.4+ (UI组件库)
+  ├── ECharts 5.4+ (图表可视化)
+  ├── Axios 1.6+ (HTTP客户端)
+  ├── SockJS + STOMP (WebSocket通信)
+  └── Vite 5.0+ (构建工具)
 
-3. **Neo4j密码**
-   - 位置：knowledge-graph-service/src/main/resources/application.yml
-   - 问题：使用了默认密码 "password"
+  后端技术（Java微服务）：
+  ├── Spring Boot 3.2.x (应用框架)
+  ├── Spring Cloud Alibaba 2023.0.3.4 (微服务生态)
+  ├── Nacos (配置中心/服务发现)
+  ├── Spring Cloud Gateway (API网关)
+  ├── MyBatis 3.0.3 (ORM框架)
+  ├── Drools (规则引擎)
+  ├── Neo4j (知识图谱数据库)
+  └── RabbitMQ (消息队列)
 
-4. **RabbitMQ配置**
-   - 位置：多个服务的application.yml文件
-   - 问题：使用了默认配置（localhost:5672，guest/guest）
-   - 涉及服务：document-ingest-service、feedback-learning-service、rule-validation-service
+  Python服务：
+  ├── FastAPI (HTTP API框架)
+  ├── SockJS + STOMP (WebSocket通信)
+  ├── BGE-M3 (向量模型)
+  └── 百炼API/DashScope (LLM大模型)
 
-### 模拟数据
-1. **RAG服务 (已修复)**
-   - 位置：python-service/rag-generation-service/rag_api.py
-   - 状态：已实现 FastAPI HTTP 接口，前端可通过 /api/v1/rag/generate 触发真实的故障树生成
+================================================================================
+二、服务架构图
+================================================================================
 
-### 默认值
-1. **知识图谱服务**
-   - 位置：knowledge-graph-service/src/main/java/com/xuelangyun/fta/knowledge/service/impl/KnowledgeGraphServiceImpl.java
-   - 问题：默认使用OR门，返回默认模板
+                           ┌─────────────────┐
+                           │   前端 (Vue)     │
+                           │   localhost:3001 │
+                           └────────┬────────┘
+                                    │
+                                    ▼
+                           ┌─────────────────┐
+                           │  Gateway Service │
+                           │   localhost:8080 │
+                           └────┬───────┬────┬┘
+                                │       │    │
+        ┌───────────┬───────────┼┐      │    │
+        │           │           ││      │    │
+        ▼           ▼           ▼▼      ▼    ▼
+  ┌─────────┐ ┌─────────────┐ ┌──────────┐ ┌──────────────┐
+  │ Auth    │ │ Document    │ │ FaultTree│ │ Knowledge    │
+  │ Service │ │ Ingest      │ │ Editor   │ │ Graph        │
+  │  :8081  │ │ Service     │ │ Service  │ │ Service      │
+  │         │ │  :8091      │ │  :8092   │ │  :8083       │
+  └────┬────┘ └──────┬──────┘ └────┬─────┘ └──────┬───────┘
+       │             │              │              │
+       │      ┌──────┴──────┐       │              │
+       │      │             │       │              │
+       │      ▼             ▼       ▼              ▼
+       │  ┌────────┐   ┌────────┐ ┌────────┐ ┌───────────┐
+       │  │Vector  │   │Rule    │ │Feed    │ │  Neo4j    │
+       │  │Store   │   │Valid.  │ │back    │ │ (Graph DB)│
+       │  │Service │   │Service │ │Service │ │           │
+       │  │ :8090  │   │ :8087  │ │ :8085  │ └───────────┘
+       │  └───┬────┘   └────────┘ └────────┘
+       │      │
+       │      ▼
+       │  ┌────────┐
+       │  │RabbitMQ│
+       │  │ :5672  │
+       │  └────────┘
+       │
+       │      ┌─────────────────────┐
+       └─────►│  Python RAG Service │
+              │  rag_api.py (:8001) │
+              │  rag_consumer.py     │
+              └─────────────────────┘
 
-2. **文档摄入服务**
-   - 位置：document-ingest-service/src/main/java/com/xuelangyun/fta/document/service/impl/DocumentServiceImpl.java
-   - 问题：默认页面计数为1
+================================================================================
+三、后端服务详解
+================================================================================
 
-3. **Python服务 (已修复)**
-   - 位置：python-service/rag-generation-service/rag_service/fault_tree_generator.py
-   - 状态：已实现真实故障树生成逻辑
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│  1. auth-service (认证服务)                                                     │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│  端口：8081                                                                     │
+│  包名：com.cxyaqcdm.fta.auth                                                    │
+│  数据库：Oracle (auth_db)                                                       │
+│                                                                                 │
+│  核心功能：                                                                      │
+│  ├── 用户注册/登录                                                              │
+│  ├── JWT令牌生成与验证                                                          │
+│  └── 雪花ID生成器                                                              │
+│                                                                                 │
+│  关键文件：                                                                      │
+│  ├── AuthController.java - 认证接口                                             │
+│  ├── AuthService.java - 认证业务逻辑                                           │
+│  ├── UserEntity.java - 用户实体                                               │
+│  └── SecurityConfig.java - 安全配置                                            │
+└─────────────────────────────────────────────────────────────────────────────────┘
 
-### 硬编码问题 (已修复)
-1. **userId硬编码 (已修复)**
-   - 位置：fault-tree-editor-service/FaultTreeEditorController.java
-   - 位置：feedback-learning-service/FeedbackLearningController.java
-   - 修复方案：通过 SecurityContextHolder 从 JWT 获取当前登录用户
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│  2. common-core (公共模块)                                                      │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│  包名：com.cxyaqcdm.fta.common                                                 │
+│  类型：公共依赖库，供其他服务引用                                                 │
+│                                                                                 │
+│  核心功能：                                                                      │
+│  ├── Feign客户端配置（SpringMvcContract）                                       │
+│  ├── RabbitMQ初始化配置                                                        │
+│  ├── 异步任务配置                                                              │
+│  ├── 用户上下文传递（ThreadLocal）                                              │
+│  ├── 操作日志切面                                                              │
+│  ├── 持久化消息发送器                                                          │
+│  └── 死信队列处理器                                                            │
+│                                                                                 │
+│  关键文件：                                                                      │
+│  ├── FeignClientConfig.java - Feign配置                                       │
+│  ├── RabbitMQInitializerConfig.java - MQ初始化                                 │
+│  ├── UserContext.java - 用户上下文                                            │
+│  └── PersistentMessageSender.java - 持久化消息                                │
+└─────────────────────────────────────────────────────────────────────────────────┘
 
-2. **JWT密钥 (待配置)**
-   - 位置：gateway-service/src/main/java/com/xuelangyun/fta/gateway/config/JwtAuthenticationFilter.java
-   - 问题：使用了硬编码的临时密钥 "your-secret-key"
-   - 位置：auth-service/src/main/resources/application.yml
-   - 问题：JWT密钥使用了默认值 "your-secret-key"
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│  3. document-ingest-service (文档摄取服务)                                       │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│  端口：8091                                                                     │
+│  包名：com.cxyaqcdm.fta.document                                               │
+│  依赖服务：vector-store-service (Feign调用)                                    │
+│                                                                                 │
+│  核心功能：                                                                      │
+│  ├── 多格式文档解析（PDF、DOCX、TXT、CSV、XLSX）                               │
+│  ├── 语义段落提取（因果关系、领域实体）                                         │
+│  ├── 向量存储调用（Embedding生成）                                             │
+│  └── 文档解析消息队列消费                                                      │
+│                                                                                 │
+│  关键文件：                                                                      │
+│  ├── DocumentController.java - 文档接口                                         │
+│  ├── DocumentServiceImpl.java - 文档业务（解析逻辑）                           │
+│  ├── DocumentParseListener.java - MQ消息监听                                   │
+│  └── VectorStoreClient.java - 向量服务Feign客户端                             │
+└─────────────────────────────────────────────────────────────────────────────────┘
 
-3. **数据库密码 (待配置)**
-   - 位置：多个服务的application.yml文件
-   - 问题：使用了默认密码 "password"
-   - 涉及服务：auth-service、fault-tree-editor-service、feedback-learning-service
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│  4. fault-tree-editor-service (故障树编辑服务)                                  │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│  端口：8092（默认8082，需修改避免冲突）                                          │
+│  包名：com.cxyaqcdm.fta.editor                                                 │
+│  数据库：Oracle (fta_db)                                                        │
+│                                                                                 │
+│  核心功能：                                                                      │
+│  ├── 故障树CRUD操作                                                           │
+│  ├── 节点增删改查                                                             │
+│  ├── WebSocket实时协作                                                        │
+│  └── 树结构数据持久化                                                          │
+│                                                                                 │
+│  关键文件：                                                                      │
+│  ├── FaultTreeEditorController.java - 故障树接口                               │
+│  ├── FaultTreeEditorServiceImpl.java - 业务逻辑                               │
+│  ├── FaultTreeEntity.java - 故障树实体                                        │
+│  └── WebSocketConfig.java - WebSocket配置                                     │
+└─────────────────────────────────────────────────────────────────────────────────┘
 
-4. **Neo4j密码 (待配置)**
-   - 位置：knowledge-graph-service/src/main/resources/application.yml
-   - 问题：使用了默认密码 "password"
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│  5. feedback-learning-service (反馈学习服务)                                     │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│  端口：8085（需启动后才能确认）                                                 │
+│  包名：com.cxyaqcdm.fta.feedback                                               │
+│  数据库：Oracle (feedback_db)                                                   │
+│                                                                                 │
+│  核心功能：                                                                      │
+│  ├── 反馈数据收集                                                             │
+│  ├── 模型优化接口                                                             │
+│  └── 反馈批量处理                                                             │
+│                                                                                 │
+│  关键文件：                                                                      │
+│  ├── FeedbackController.java - 反馈接口                                       │
+│  ├── FeedbackServiceImpl.java - 反馈业务                                      │
+│  └── FeedbackEntity.java - 反馈实体                                           │
+└─────────────────────────────────────────────────────────────────────────────────┘
 
-5. **RabbitMQ配置 (待配置)**
-   - 位置：多个服务的application.yml文件
-   - 问题：使用了默认配置（localhost:5672，guest/guest）
-   - 涉及服务：document-ingest-service、feedback-learning-service、rule-validation-service
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│  6. gateway-service (API网关服务)                                               │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│  端口：8080                                                                     │
+│  包名：com.cxyaqcdm.fta.gateway                                                │
+│                                                                                 │
+│  核心功能：                                                                      │
+│  ├── 统一路由入口                                                             │
+│  ├── JWT认证拦截                                                             │
+│  ├── CORS跨域处理                                                             │
+│  └── 请求转发                                                                 │
+│                                                                                 │
+│  关键文件：                                                                      │
+│  ├── CorsConfig.java - 跨域配置                                               │
+│  └── JwtAuthenticationFilter.java - JWT过滤器                                  │
+└─────────────────────────────────────────────────────────────────────────────────┘
 
-### RabbitMQ配置
-1. **交换机**
-   - 位置：common-core/src/main/java/com/xuelangyun/fta/common/constants/AmqpConstants.java
-   - 已定义的交换机：
-     - exchange.document：文档相关
-     - exchange.rag：RAG生成相关
-     - exchange.fault-tree：故障树相关
-     - exchange.validation：验证相关
-     - exchange.feedback：反馈相关
-     - exchange.knowledge-graph：知识图谱相关
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│  7. knowledge-graph-service (知识图谱服务)                                       │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│  端口：8083（需启动后才能确认）                                                 │
+│  包名：com.cxyaqcdm.fta.knowledge                                              │
+│  数据库：Neo4j (图数据库)                                                       │
+│                                                                                 │
+│  核心功能：                                                                      │
+│  ├── 模板查询（三层匹配：精确/模糊/设备类型）                                    │
+│  ├── 知识丰富化（因果关系添加）                                                │
+│  ├── 本体初始化（ISO 13379）                                                  │
+│  └── Levenshtein距离相似度计算                                                │
+│                                                                                 │
+│  关键文件：                                                                      │
+│  ├── KnowledgeGraphController.java - 知识图谱接口                              │
+│  ├── KnowledgeGraphServiceImpl.java - 业务逻辑                                │
+│  ├── EventNode.java - 事件节点实体                                            │
+│  └── Relationship.java - 关系实体                                              │
+└─────────────────────────────────────────────────────────────────────────────────┘
 
-2. **队列**
-   - 位置：common-core/src/main/java/com/xuelangyun/fta/common/constants/AmqpConstants.java
-   - 已定义的队列：
-     - queue.document.parse：文档解析队列
-     - queue.rag.generate：RAG生成队列
-     - queue.validation.fault.tree：故障树验证队列
-     - queue.feedback.process：反馈处理队列
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│  8. rule-validation-service (规则校验服务)                                      │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│  端口：8087（需启动后才能确认）                                                  │
+│  包名：com.cxyaqcdm.fta.validation                                              │
+│  规则引擎：Drools                                                              │
+│                                                                                 │
+│  核心功能：                                                                      │
+│  ├── 循环依赖检测                                                              │
+│  ├── 逻辑门输入验证                                                            │
+│  ├── 单顶事件检测                                                              │
+│  ├── 事件名称唯一性检测                                                        │
+│  └── Drools规则热更新                                                          │
+│                                                                                 │
+│  关键文件：                                                                      │
+│  ├── ValidationController.java - 校验接口                                     │
+│  ├── RuleValidationServiceImpl.java - 校验业务                                 │
+│  ├── DroolsConfig.java - Drools配置                                          │
+│  └── fault-tree-validation.drl - 规则文件                                      │
+└─────────────────────────────────────────────────────────────────────────────────┘
 
-3. **路由键**
-   - 位置：common-core/src/main/java/com/xuelangyun/fta/common/constants/AmqpConstants.java
-   - 已定义的路由键包括：
-     - ROUTING_KEY_DOCUMENT_PARSED
-     - ROUTING_KEY_FEEDBACK_CREATED
-     - ROUTING_KEY_FEEDBACK_ANALYZED
-     - ROUTING_KEY_KNOWLEDGE_OPTIMIZE
-     - ROUTING_KEY_RAG_OPTIMIZE
-     - ROUTING_KEY_MODELS_OPTIMIZED
-     - ROUTING_KEY_VALIDATION_RESULT
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│  9. vector-store-service (向量存储服务)                                         │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│  端口：8090                                                                     │
+│  包名：com.cxyaqcdm.fta.vector                                                 │
+│  数据库：Oracle (fta_vector_db)                                                 │
+│                                                                                 │
+│  核心功能：                                                                      │
+│  ├── 文档元数据管理                                                            │
+│  ├── 段落元数据管理                                                            │
+│  ├── 向量生成（BGE-M3模型调用）                                                │
+│  ├── 向量相似度搜索                                                            │
+│  └── 完整流程处理（文档→段落→向量）                                            │
+│                                                                                 │
+│  关键文件：                                                                      │
+│  ├── VectorStoreController.java - 向量接口                                     │
+│  ├── VectorStoreServiceImpl.java - 业务逻辑                                   │
+│  ├── EmbeddingClient.java - 向量模型Feign客户端                               │
+│  ├── DocumentMetadata.java - 文档元数据实体                                    │
+│  ├── ParagraphMetadata.java - 段落元数据实体                                   │
+│  └── VectorStore.java - 向量实体                                              │
+└─────────────────────────────────────────────────────────────────────────────────┘
 
-### 数据库配置
-1. **默认数据库**
-   - 所有服务默认使用H2内存数据库
-   - 数据库名称：
-     - auth-service：auth_db
-     - fault-tree-editor-service：fta_db
-     - feedback-learning-service：feedback_db
+================================================================================
+四、前端结构详解
+================================================================================
 
-2. **MySQL配置**
-   - 未明确指定MySQL数据库连接信息
-   - 所有服务使用环境变量配置数据库连接
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│  frontend/src/                                                                  │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│  ├── main.js                    - Vue应用入口                                   │
+│  ├── App.vue                    - 根组件（导航栏+路由视图）                      │
+│  │                                                                              │
+│  ├── api/                       - API服务层                                     │
+│  │   └── index.js               - 封装所有后端API调用                           │
+│  │                                                                              │
+│  ├── components/                - 公共组件                                      │
+│  │   ├── FaultTreeChart.vue     - 故障树可视化（ECharts树形图）                   │
+│  │   ├── SourceDetail.vue       - 溯源信息展示组件                              │
+│  │   └── ValidationResult.vue   - 校验结果展示组件                              │
+│  │                                                                              │
+│  ├── router/                    - 路由配置                                      │
+│  │   └── index.js               - 路由定义+导航守卫                             │
+│  │                                                                              │
+│  └── views/                     - 页面视图                                      │
+│      ├── Home.vue               - 首页                                         │
+│      ├── Login.vue              - 登录/注册页                                   │
+│      ├── Document.vue           - 文档管理                                      │
+│      ├── FaultTree.vue          - 故障树列表                                    │
+│      ├── FaultTreeEdit.vue      - 故障树编辑（核心页面）                         │
+│      ├── KnowledgeGraph.vue     - 知识图谱                                      │
+│      └── Feedback.vue           - 反馈管理                                      │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+================================================================================
+五、Python服务详解
+================================================================================
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│  python-service/rag-generation-service/                                          │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│  rag_api.py                     - FastAPI HTTP服务                             │
+│                                   端口：8001                                    │
+│                                                                                 │
+│  rag_service/                                                                   │
+│  ├── rag_consumer.py            - RabbitMQ消费者（后台任务）                    │
+│  ├── fault_tree_generator.py    - 故障树生成器                                 │
+│  ├── hybrid_generator.py        - 混合生成器（知识+数据驱动）                    │
+│  ├── knowledge_graph_client.py   - 知识图谱Python客户端                        │
+│  └── llm_client.py             - LLM大模型客户端（百炼API）                    │
+│                                                                                 │
+│  industrial_fta_common/                                                         │
+│  ├── fault_tree_schema.py       - 故障树数据结构定义                           │
+│  ├── llm_prompt_templates.py    - 提示词模板                                   │
+│  └── message_utils.py          - 消息工具                                     │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+================================================================================
+六、数据库设计
+================================================================================
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│  Oracle 数据库                                                                  │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│  auth_db (认证数据库)                                                          │
+│  └── 用户表 (users)                                                            │
+│                                                                                 │
+│  fta_db / fta_vector_db (业务数据库)                                           │
+│  ├── 故障树表 (fault_trees)                                                    │
+│  ├── 文档元数据表 (document_metadata)                                          │
+│  ├── 段落元数据表 (paragraph_metadata)                                         │
+│  └── 向量存储表 (vector_store)                                                  │
+│                                                                                 │
+│  feedback_db (反馈数据库)                                                      │
+│  └── 反馈表 (feedback)                                                         │
+│                                                                                 │
+│  Neo4j (图数据库)                                                              │
+│  ├── 事件节点 (Event)                                                          │
+│  └── 因果关系 (CAUSES)                                                         │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+================================================================================
+七、消息队列设计
+================================================================================
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│  RabbitMQ 交换机与队列                                                          │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│  交换机：                                                                       │
+│  ├── exchange.document          - 文档处理交换机                                │
+│  ├── exchange.rag              - RAG生成交换机                                │
+│  ├── exchange.fault-tree       - 故障树交换机                                  │
+│  ├── exchange.validation       - 校验交换机                                    │
+│  ├── exchange.feedback         - 反馈交换机                                    │
+│  └── exchange.knowledge-graph  - 知识图谱交换机                                │
+│                                                                                 │
+│  队列：                                                                        │
+│  ├── queue.document.parse      - 文档解析队列                                  │
+│  ├── queue.rag.generate        - RAG生成队列                                  │
+│  ├── queue.validation.fault.tree - 故障树校验队列                              │
+│  └── queue.feedback.process    - 反馈处理队列                                  │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+================================================================================
+八、API网关路由配置
+================================================================================
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│  路由规则（localhost:8080）                                                     │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│  /api/v1/auth/**           → auth-service:8081                                 │
+│  /api/v1/documents/**      → document-ingest-service:8091                      │
+│  /api/v1/fault-trees/**    → fault-tree-editor-service:8092                    │
+│  /api/v1/feedback/**       → feedback-learning-service:8085                    │
+│  /api/v1/kg/**             → knowledge-graph-service:8083                     │
+│  /api/v1/validation/**     → rule-validation-service:8087                      │
+│  /api/v1/vector/**         → vector-store-service:8090                         │
+│  /api/v1/rag/**            → rag-generation-service:8001 (Python)             │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+================================================================================
+九、环境配置说明
+================================================================================
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│  主要配置文件位置                                                                │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│  后端服务：                                                                     │
+│  ├── application.yml            - 服务配置                                      │
+│  ├── bootstrap.yml              - 引导配置（Nacos）                             │
+│  └── mapper/*.xml              - MyBatis映射文件                               │
+│                                                                                 │
+│  前端：                                                                        │
+│  ├── vite.config.js            - Vite配置（含代理）                            │
+│  └── package.json              - 依赖管理                                      │
+│                                                                                 │
+│  Python服务：                                                                   │
+│  └── .env                      - 环境变量（API密钥等）                          │
+│                                                                                 │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+================================================================================
+十、端口使用情况
+================================================================================
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│  端口         服务                    备注                                       │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│  1521        Oracle XE              数据库监听                                 │
+│  3001        前端 (Vite)            开发服务器（3000被占用）                     │
+│  5672        RabbitMQ               AMQP协议                                   │
+│  8001        Python RAG API         FastAPI服务                               │
+│  8080        API Gateway            主入口                                    │
+│  8081        Auth Service           认证服务                                  │
+│  8083        Knowledge Graph        知识图谱服务                               │
+│  8085        Feedback Service       反馈服务（需确认）                          │
+│  8087        Rule Validation        规则校验服务                               │
+│  8090        Vector Store           向量存储服务                               │
+│  8091        Document Ingest        文档摄取服务                               │
+│  8092        Fault Tree Editor      故障树编辑服务                             │
+│  8848        Nacos                  配置中心                                  │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+================================================================================
+十一、关键依赖关系
+================================================================================
+
+  document-ingest-service
+          │
+          ├── Feign调用 ──► vector-store-service
+          │                         │
+          │                         └── Oracle数据库
+          │
+          └── RabbitMQ消息 ──► rag-generation-service (Python)
+                                        │
+                                        ├── 调用LLM API
+                                        └── 返回故障树结果
+
+  knowledge-graph-service
+          │
+          └── Neo4j图数据库
+                    │
+                    └── 查询因果模板
+
+  fault-tree-editor-service
+          │
+          └── WebSocket实时推送
+
+================================================================================
+
+*文档版本：2.0*
+*最后更新：2026-04-08*

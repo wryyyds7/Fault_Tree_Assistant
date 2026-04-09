@@ -57,27 +57,30 @@
     </select>
 
     <insert id="insert">
-        INSERT INTO feedback (feedback_id, tree_id, user_id, feedback_type, rating, content, 
-            comments, suggestions, suggested_changes, accuracy_score, completeness_score, 
+        INSERT INTO feedback (feedback_id, tree_id, user_id, feedback_type, rating, content,
+            comments, suggestions, suggested_changes, accuracy_score, completeness_score,
             clarity_score, status, processed_by, processed_at, applied_to_model, created_at)
-        VALUES (#{feedbackId}, #{treeId}, #{userId}, #{feedbackType}, #{rating}, #{content},
-            #{comments}, #{suggestions}, #{suggestedChanges}, #{accuracyScore}, #{completenessScore},
-            #{clarityScore}, #{status}, #{processedBy}, #{processedAt}, #{appliedToModel}, #{createdAt})
+        VALUES (#{feedbackId}, #{treeId}, #{userId}, #{feedbackType}, #{rating,jdbcType=DOUBLE}, #{content,jdbcType=VARCHAR},
+            #{comments,jdbcType=VARCHAR}, #{suggestions,jdbcType=VARCHAR}, #{suggestedChanges,jdbcType=VARCHAR},
+            #{accuracyScore,jdbcType=DOUBLE}, #{completenessScore,jdbcType=DOUBLE},
+            #{clarityScore,jdbcType=DOUBLE}, #{status}, #{processedBy,jdbcType=VARCHAR},
+            #{processedAt,jdbcType=TIMESTAMP}, #{appliedToModel,jdbcType=INTEGER}, #{createdAt,jdbcType=TIMESTAMP})
     </insert>
 
     <update id="update">
         UPDATE feedback
-        SET rating = #{rating}, content = #{content}, comments = #{comments}, 
-            suggestions = #{suggestions}, suggested_changes = #{suggestedChanges},
-            accuracy_score = #{accuracyScore}, completeness_score = #{completenessScore},
-            clarity_score = #{clarityScore}, status = #{status}, processed_by = #{processedBy},
-            processed_at = #{processedAt}, applied_to_model = #{appliedToModel}
+        SET rating = #{rating,jdbcType=DOUBLE}, content = #{content,jdbcType=VARCHAR},
+            comments = #{comments,jdbcType=VARCHAR},
+            suggestions = #{suggestions,jdbcType=VARCHAR}, suggested_changes = #{suggestedChanges,jdbcType=VARCHAR},
+            accuracy_score = #{accuracyScore,jdbcType=DOUBLE}, completeness_score = #{completenessScore,jdbcType=DOUBLE},
+            clarity_score = #{clarityScore,jdbcType=DOUBLE}, status = #{status}, processed_by = #{processedBy,jdbcType=VARCHAR},
+            processed_at = #{processedAt,jdbcType=TIMESTAMP}, applied_to_model = #{appliedToModel,jdbcType=INTEGER}
         WHERE feedback_id = #{feedbackId}
     </update>
 
     <update id="updateStatus">
         UPDATE feedback
-        SET status = #{status}, processed_by = #{processedBy}, processed_at = #{processedAt}
+        SET status = #{status}, processed_by = #{processedBy,jdbcType=VARCHAR}, processed_at = #{processedAt,jdbcType=TIMESTAMP}
         WHERE feedback_id = #{feedbackId}
     </update>
 

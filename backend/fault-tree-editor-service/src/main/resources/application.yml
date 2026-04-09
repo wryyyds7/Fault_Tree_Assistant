@@ -23,6 +23,9 @@ spring:
     hibernate:
       ddl-auto: ${jpa.hibernate.ddl-auto:update}
     show-sql: ${jpa.show-sql:true}
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+  type-aliases-package: com.cxyaqcdm.fta.editor.entity
 
 server:
   port: 8084

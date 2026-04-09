@@ -9,6 +9,7 @@ public interface FaultTreeEditorService {
     FaultTreeEntity createFaultTree(FaultTreeDTO faultTreeDTO, String userId);
     FaultTreeEntity getFaultTree(String treeId);
     List<FaultTreeEntity> getAllFaultTrees();
+    List<FaultTreeEntity> getFaultTreesByCreatedBy(String createdBy);
     FaultTreeEntity updateFaultTree(String treeId, FaultTreeDTO faultTreeDTO, String userId);
     void deleteFaultTree(String treeId);
     FaultTreeDTO convertToDTO(FaultTreeEntity entity);

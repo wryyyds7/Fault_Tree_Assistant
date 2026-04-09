@@ -6,8 +6,7 @@ from typing import Optional, Tuple, Dict, Any
 import json
 import re
 
-from rag_service.llm_client import LLMClient
-from .document_classification import (
+from ..prompts.document_classification import (
     DOCUMENT_CLASSIFICATION_SYSTEM_PROMPT,
     DOCUMENT_CLASSIFICATION_USER_PROMPT,
     FEWSHOT_EXAMPLES
@@ -148,7 +147,7 @@ class DocumentClassifier:
 
     def __init__(
         self,
-        llm_client: Optional[LLMClient] = None,
+        llm_client: 'LLMClient' = None,
         filename_confidence: float = 0.85,
         content_confidence: float = 0.70,
         llm_confidence: float = 0.90
@@ -162,6 +161,7 @@ class DocumentClassifier:
             content_confidence: 内容匹配策略的置信度
             llm_confidence: LLM判断策略的置信度
         """
+        from rag_service.llm_client import LLMClient
         self.llm_client = llm_client or LLMClient()
         self.filename_confidence = filename_confidence
         self.content_confidence = content_confidence
@@ -333,7 +333,7 @@ class DocumentClassifier:
 def classify_document(
     document_name: str,
     content: str,
-    llm_client: Optional[LLMClient] = None
+    llm_client: 'LLMClient' = None
 ) -> Dict[str, Any]:
     """
     便捷函数：对文档进行来源类型分类

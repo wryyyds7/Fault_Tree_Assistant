@@ -52,8 +52,8 @@ public class VectorStoreController {
 
     // 段落元数据相关接口
     @PostMapping("/documents/{docId}/paragraphs")
-    public ResponseEntity<List<ParagraphMetadata>> createParagraphMetadata(@PathVariable String docId, @RequestBody List<Map<String, Object>> paragraphs) {
-        List<ParagraphMetadata> metadataList = vectorStoreService.createParagraphMetadata(docId, paragraphs);
+    public ResponseEntity<List<ParagraphMetadata>> createParagraphMetadata(@PathVariable String docId, @RequestBody List<Map<String, Object>> paragraphs, @RequestParam(required = false) String userId) {
+        List<ParagraphMetadata> metadataList = vectorStoreService.createParagraphMetadata(docId, paragraphs, userId);
         return ResponseEntity.ok(metadataList);
     }
 
@@ -71,9 +71,9 @@ public class VectorStoreController {
 
     // 向量相关接口
     @PostMapping("/documents/{docId}/vectors")
-    public ResponseEntity<Void> generateVectors(@PathVariable String docId) {
+    public ResponseEntity<Void> generateVectors(@PathVariable String docId, @RequestParam(required = false) String userId) {
         List<ParagraphMetadata> paragraphs = vectorStoreService.getParagraphMetadataByDocId(docId);
-        vectorStoreService.generateVectors(docId, paragraphs);
+        vectorStoreService.generateVectors(docId, paragraphs, userId);
         return ResponseEntity.noContent().build();
     }
 
@@ -113,9 +113,10 @@ public class VectorStoreController {
             ((Number) request.get("credibilityWeight")).doubleValue() : null;
         String equipmentType = (String) request.get("equipmentType");
         Boolean persistToKnowledgeBase = (Boolean) request.getOrDefault("persistToKnowledgeBase", false);
+        String userId = (String) request.get("userId");
 
         vectorStoreService.processDocument(docId, fileName, fileType, pageCount, paragraphs,
-                sourceType, credibilityWeight, equipmentType, persistToKnowledgeBase);
+                sourceType, credibilityWeight, equipmentType, persistToKnowledgeBase, userId);
         return ResponseEntity.noContent().build();
     }
 

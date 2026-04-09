@@ -1,5 +1,6 @@
 package com.cxyaqcdm.fta.document.controller;
 
+import com.cxyaqcdm.fta.common.context.UserContext;
 import com.cxyaqcdm.fta.document.service.DocumentService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,14 +21,34 @@ public class DocumentController {
 
     private final DocumentService documentService;
 
+    private String getCurrentUserId() {
+        UserContext userContext = UserContext.getCurrentUser();
+        if (userContext != null) {
+            return userContext.getUserId();
+        }
+        return null;
+    }
+
+    private String getCurrentUserRole() {
+        UserContext userContext = UserContext.getCurrentUser();
+        if (userContext != null) {
+            return userContext.getRole();
+        }
+        return "USER";
+    }
+
     @PostMapping("/upload")
     public ResponseEntity<Map<String, Object>> uploadDocument(
             @RequestParam("file") MultipartFile file,
             @RequestParam(value = "sourceType", required = false, defaultValue = "unknown") String sourceType,
             @RequestParam(value = "equipmentType", required = false) String equipmentType,
-            @RequestParam(value = "persistToKnowledgeBase", required = false, defaultValue = "false") Boolean persistToKnowledgeBase) {
+            @RequestParam(value = "persistToKnowledgeBase", required = false, defaultValue = "false") Boolean persistToKnowledgeBase,
+            @RequestParam(value = "userId", required = false) String userId) {
         try {
-            Map<String, Object> result = documentService.uploadDocument(file, sourceType, equipmentType, persistToKnowledgeBase);
+            if (userId == null || userId.isEmpty()) {
+                userId = getCurrentUserId();
+            }
+            Map<String, Object> result = documentService.uploadDocument(file, sourceType, equipmentType, persistToKnowledgeBase, userId);
             String status = (String) result.get("status");
             if ("error".equals(status)) {
                 log.error("Document upload failed: {}", result.get("message"));
@@ -59,8 +80,18 @@ public class DocumentController {
     }
 
     @GetMapping
-    public ResponseEntity<List<Map<String, Object>>> getAllDocuments() {
-        List<Map<String, Object>> documents = documentService.getAllDocuments();
+    public ResponseEntity<List<Map<String, Object>>> getAllDocuments(
+            @RequestParam(value = "userId", required = false) String userId) {
+        String role = getCurrentUserRole();
+        String currentUserId = getCurrentUserId();
+
+        if ("ADMIN".equals(role)) {
+            userId = null;
+        } else if (userId == null || userId.isEmpty()) {
+            userId = currentUserId;
+        }
+
+        List<Map<String, Object>> documents = documentService.getAllDocuments(userId);
         return ResponseEntity.ok(documents);
     }
 }

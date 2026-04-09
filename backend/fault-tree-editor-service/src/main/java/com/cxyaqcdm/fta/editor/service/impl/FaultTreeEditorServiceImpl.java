@@ -54,6 +54,11 @@ public class FaultTreeEditorServiceImpl implements FaultTreeEditorService {
     }
 
     @Override
+    public List<FaultTreeEntity> getFaultTreesByCreatedBy(String createdBy) {
+        return faultTreeMapper.findByCreatedBy(createdBy);
+    }
+
+    @Override
     public FaultTreeEntity updateFaultTree(String treeId, FaultTreeDTO faultTreeDTO, String userId) {
         try {
             // 查找现有故障树

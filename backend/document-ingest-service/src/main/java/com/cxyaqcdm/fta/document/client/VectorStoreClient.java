@@ -6,7 +6,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 
 import java.util.Map;
 
-@FeignClient(name = "vector-store-service", url = "http://vector-store-service:8084")
+@FeignClient(name = "vector-store-service", url = "http://vector-store-service:8090")
 public interface VectorStoreClient {
     @PostMapping("/api/v1/vector/process")
     void processDocument(@RequestBody Map<String, Object> request);

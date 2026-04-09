@@ -1,12 +1,11 @@
 package com.cxyaqcdm.fta.feedback.controller;
 
+import com.cxyaqcdm.fta.common.context.UserContext;
 import com.cxyaqcdm.fta.feedback.entity.FeedbackEntity;
 import com.cxyaqcdm.fta.feedback.service.FeedbackLearningService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -20,16 +19,24 @@ public class FeedbackLearningController {
     private final FeedbackLearningService feedbackLearningService;
 
     private String getCurrentUserId() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication != null && authentication.isAuthenticated()) {
-            return authentication.getName();
+        UserContext userContext = UserContext.getCurrentUser();
+        if (userContext != null) {
+            return userContext.getUserId();
         }
-        throw new RuntimeException("User not authenticated");
+        return null;
+    }
+
+    private String getCurrentUserRole() {
+        UserContext userContext = UserContext.getCurrentUser();
+        if (userContext != null) {
+            return userContext.getRole();
+        }
+        return "USER";
     }
 
     @PostMapping
     public ResponseEntity<FeedbackEntity> createFeedback(@RequestBody FeedbackEntity feedback) {
-        if (feedback.getUserId() == null) {
+        if (feedback.getUserId() == null || feedback.getUserId().isEmpty()) {
             feedback.setUserId(getCurrentUserId());
         }
         var savedFeedback = feedbackLearningService.createFeedback(feedback);
@@ -59,7 +66,15 @@ public class FeedbackLearningController {
 
     @GetMapping
     public ResponseEntity<List<FeedbackEntity>> getAllFeedback() {
-        var feedbackList = feedbackLearningService.getAllFeedback();
+        String role = getCurrentUserRole();
+        String currentUserId = getCurrentUserId();
+        List<FeedbackEntity> feedbackList;
+
+        if ("ADMIN".equals(role)) {
+            feedbackList = feedbackLearningService.getAllFeedback();
+        } else {
+            feedbackList = feedbackLearningService.getFeedbackByUserId(currentUserId);
+        }
         return ResponseEntity.ok(feedbackList);
     }
 

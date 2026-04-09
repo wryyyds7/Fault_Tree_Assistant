@@ -1,16 +1,18 @@
 import os
+import sys
 import json
 import uuid
-import asyncio
 import requests
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, BackgroundTasks
 from pydantic import BaseModel
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Tuple
 
 from industrial_fta_common.fault_tree_schema import FaultTreeSchema
-from industrial_fta_common.prompts import load_fault_tree_prompt
+from industrial_fta_common.prompts.prompt_loader import load_fault_tree_prompt
 from industrial_fta_common.fusion.fusion_engine import FusionEngine
+
+sys.path.insert(0, os.path.dirname(__file__))
 from rag_service.llm_client import LLMClient
 from rag_service.vector_retriever import VectorRetriever
 from rag_service.fault_tree_generator import FaultTreeGenerator
@@ -30,7 +32,10 @@ hybrid_generator = HybridFaultTreeGenerator(
     vector_retriever=vector_retriever,
     llm_client=llm_client
 )
-fusion_engine = FusionEngine(similarity_threshold=0.7, auto_resolve_low_severity=True)
+fusion_engine = FusionEngine(
+    similarity_threshold=float(os.getenv('SIMILARITY_THRESHOLD', '0.7')),
+    auto_resolve_low_severity=os.getenv('AUTO_RESOLVE_LOW_SEVERITY', 'true').lower() == 'true'
+)
 
 class GenerateRequest(BaseModel):
     topEvent: str
@@ -66,6 +71,125 @@ class EvidenceResponse(BaseModel):
     evidences: List[ParagraphEvidence]
 
 tasks_store: Dict[str, Dict[str, Any]] = {}
+
+
+def _snake_to_camel(snake_str: str) -> str:
+    """将下划线命名转换为驼峰命名"""
+    components = snake_str.split('_')
+    return components[0] + ''.join(x.title() for x in components[1:])
+
+
+def _convert_to_camel_case(obj: Any) -> Any:
+    """递归转换字典的键为驼峰命名"""
+    if isinstance(obj, dict):
+        return {_snake_to_camel(k): _convert_to_camel_case(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [_convert_to_camel_case(item) for item in obj]
+    return obj
+
+
+def _populate_source_details(node: Dict[str, Any], relevant_paragraphs: List[Dict[str, Any]], evidence_mapping: Dict[str, Dict]) -> None:
+    """为节点填充溯源信息"""
+    node_id = node.get('eventId', node.get('event_id', ''))
+
+    related_evidence = []
+    for para in relevant_paragraphs:
+        para_id = para.get('paragraphId', '')
+        if para_id in evidence_mapping:
+            related_evidence.append(evidence_mapping[para_id])
+        elif para.get('content', '').lower() in node.get('eventName', '').lower():
+            related_evidence.append(para)
+
+    if related_evidence:
+        best_evidence = related_evidence[0]
+        node['sourceDetail'] = {
+            'sourceId': node_id,
+            'sourceType': 'RETRIEVED',
+            'documentName': best_evidence.get('metadata', {}).get('documentName', 'Unknown'),
+            'pageNumber': best_evidence.get('metadata', {}).get('pageNumber'),
+            'paragraphId': best_evidence.get('paragraphId'),
+            'sectionTitle': best_evidence.get('metadata', {}).get('sectionTitle', ''),
+            'similarityScore': best_evidence.get('similarityScore', 0.0)
+        }
+    else:
+        node['sourceDetail'] = {
+            'sourceId': node_id,
+            'sourceType': 'HYBRID_GENERATED',
+            'documentName': 'RAG + Knowledge Graph',
+            'pageNumber': None,
+            'paragraphId': None,
+            'sectionTitle': None,
+            'similarityScore': 0.0
+        }
+
+    if node.get('confidence') is None:
+        node['confidence'] = 0.85
+    if node.get('aiGenerated') is None:
+        node['aiGenerated'] = True
+    if node.get('verificationStatus') is None:
+        node['verificationStatus'] = 'PENDING'
+
+    if node.get('children'):
+        for child in node['children']:
+            _populate_source_details(child, relevant_paragraphs, evidence_mapping)
+
+
+class RagApiConverter:
+    """RAG API数据转换工具类"""
+
+    @staticmethod
+    def snake_to_camel(snake_str: str) -> str:
+        components = snake_str.split('_')
+        return components[0] + ''.join(x.title() for x in components[1:])
+
+    @staticmethod
+    def convert_to_camel_case(obj: Any) -> Any:
+        if isinstance(obj, dict):
+            return {RagApiConverter.snake_to_camel(k): RagApiConverter.convert_to_camel_case(v) for k, v in obj.items()}
+        elif isinstance(obj, list):
+            return [RagApiConverter.convert_to_camel_case(item) for item in obj]
+        return obj
+
+    @staticmethod
+    def populate_source_details(node: Dict[str, Any], relevant_paragraphs: List[Dict[str, Any]]) -> None:
+        node_id = node.get('eventId', node.get('event_id', ''))
+        event_name = node.get('eventName', node.get('event_name', ''))
+
+        best_evidence = None
+        best_score = -1
+
+        for para in relevant_paragraphs:
+            content = para.get('content', '').lower()
+            if event_name.lower() in content or content in event_name.lower():
+                score = para.get('similarityScore', 0.0)
+                if score > best_score:
+                    best_score = score
+                    best_evidence = para
+
+        metadata = best_evidence.get('metadata', {}) if best_evidence else {}
+
+        node['sourceDetail'] = {
+            'sourceId': node_id,
+            'sourceType': 'RETRIEVED' if best_evidence else 'HYBRID_GENERATED',
+            'documentName': metadata.get('documentName', 'RAG + Knowledge Graph'),
+            'pageNumber': metadata.get('pageNumber'),
+            'paragraphId': best_evidence.get('paragraphId') if best_evidence else None,
+            'sectionTitle': metadata.get('sectionTitle', ''),
+            'similarityScore': best_score if best_evidence else 0.0
+        }
+
+        if node.get('confidence') is None:
+            node['confidence'] = 0.85
+        if node.get('aiGenerated') is None:
+            node['aiGenerated'] = True
+        if node.get('verificationStatus') is None:
+            node['verificationStatus'] = 'PENDING'
+        node['generationMode'] = 'hybrid'
+
+        if node.get('children'):
+            for child in node['children']:
+                RagApiConverter.populate_source_details(child, relevant_paragraphs)
+
 
 def _get_document_content_from_service(doc_ids: List[str]) -> List[Dict[str, Any]]:
     """从document-ingest-service获取文档内容，返回带元数据的段落列表"""
@@ -210,26 +334,17 @@ def _generate_fault_tree_sync(task_id: str, top_event: str, doc_ids: List[str], 
             **hybrid_stats
         }
 
-        # 转换为字典并添加元数据
+        # 转换为字典
         fault_tree_dict = fault_tree.dict() if hasattr(fault_tree, 'dict') else fault_tree
 
-        for node in _traverse_nodes(fault_tree_dict):
-            node['sourceDetail'] = {
-                'sourceId': node.get('eventId'),
-                'sourceType': 'HYBRID_GENERATED',
-                'documentName': 'RAG + Knowledge Graph',
-                'pageNumber': None,
-                'paragraphId': None,
-                'fusionStatistics': combined_stats
-            }
-            if node.get('confidence') is None:
-                node['confidence'] = 0.85
-            if node.get('aiGenerated') is None:
-                node['aiGenerated'] = True
-            if node.get('verificationStatus') is None:
-                node['verificationStatus'] = 'PENDING'
-            # 添加生成模式标记
-            node['generationMode'] = 'hybrid'
+        # 转换为驼峰命名（snake_case -> camelCase）
+        fault_tree_dict = RagApiConverter.convert_to_camel_case(fault_tree_dict)
+
+        # 填充溯源信息
+        RagApiConverter.populate_source_details(fault_tree_dict, fused_paragraphs)
+
+        # 添加融合统计信息到根节点
+        fault_tree_dict['fusionStatistics'] = combined_stats
 
         tasks_store[task_id] = {
             'status': 'completed',

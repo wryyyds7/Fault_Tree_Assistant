@@ -39,13 +39,16 @@
 
     <insert id="insert">
         INSERT INTO vector_store (vector_id, paragraph_id, doc_id, vector_data, vector_dimension, embedding_model, similarity_score, created_by, created_at, updated_at)
-        VALUES (#{vectorId}, #{paragraphId}, #{docId}, #{vectorData}, #{vectorDimension}, #{embeddingModel}, #{similarityScore}, #{createdBy}, #{createdAt}, #{updatedAt})
+        VALUES (#{vectorId}, #{paragraphId}, #{docId}, #{vectorData,jdbcType=CLOB}, #{vectorDimension,jdbcType=INTEGER},
+            #{embeddingModel,jdbcType=VARCHAR}, #{similarityScore,jdbcType=DOUBLE},
+            #{createdBy,jdbcType=VARCHAR}, #{createdAt,jdbcType=TIMESTAMP}, #{updatedAt,jdbcType=TIMESTAMP})
     </insert>
 
     <update id="update">
         UPDATE vector_store
-        SET vector_data = #{vectorData}, vector_dimension = #{vectorDimension}, embedding_model = #{embeddingModel},
-            similarity_score = #{similarityScore}, updated_at = #{updatedAt}
+        SET vector_data = #{vectorData,jdbcType=CLOB}, vector_dimension = #{vectorDimension,jdbcType=INTEGER},
+            embedding_model = #{embeddingModel,jdbcType=VARCHAR},
+            similarity_score = #{similarityScore,jdbcType=DOUBLE}, updated_at = #{updatedAt,jdbcType=TIMESTAMP}
         WHERE vector_id = #{vectorId}
     </update>
 

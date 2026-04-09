@@ -55,25 +55,27 @@
     </select>
 
     <insert id="insert">
-        INSERT INTO fault_trees (tree_id, name, description, equipment_type, top_event, tree_data, 
-            version, validation_status, validation_message, source_doc_ids, source_detail, 
+        INSERT INTO fault_trees (tree_id, name, description, equipment_type, top_event, tree_data,
+            version, validation_status, validation_message, source_doc_ids, source_detail,
             publish_status, fusion_statistics, generated_by, template_id, created_by, updated_by,
             created_at, updated_at)
-        VALUES (#{treeId}, #{name}, #{description}, #{equipmentType}, #{topEvent}, #{treeData},
-            #{version}, #{validationStatus}, #{validationMessage}, #{sourceDocIds}, #{sourceDetail},
-            #{publishStatus}, #{fusionStatistics}, #{generatedBy}, #{templateId}, #{createdBy}, #{updatedBy},
-            #{createdAt}, #{updatedAt})
+        VALUES (#{treeId}, #{name}, #{description,jdbcType=VARCHAR}, #{equipmentType,jdbcType=VARCHAR}, #{topEvent,jdbcType=VARCHAR}, #{treeData,jdbcType=CLOB},
+            #{version,jdbcType=INTEGER}, #{validationStatus}, #{validationMessage,jdbcType=VARCHAR},
+            #{sourceDocIds,jdbcType=VARCHAR}, #{sourceDetail,jdbcType=VARCHAR},
+            #{publishStatus}, #{fusionStatistics,jdbcType=VARCHAR}, #{generatedBy,jdbcType=VARCHAR},
+            #{templateId,jdbcType=VARCHAR}, #{createdBy,jdbcType=VARCHAR}, #{updatedBy,jdbcType=VARCHAR},
+            #{createdAt,jdbcType=TIMESTAMP}, #{updatedAt,jdbcType=TIMESTAMP})
     </insert>
 
     <update id="update">
         UPDATE fault_trees
-        SET name = #{name}, description = #{description}, equipment_type = #{equipmentType},
-            top_event = #{topEvent}, tree_data = #{treeData}, version = #{version},
-            validation_status = #{validationStatus}, validation_message = #{validationMessage},
-            source_doc_ids = #{sourceDocIds}, source_detail = #{sourceDetail},
-            publish_status = #{publishStatus}, fusion_statistics = #{fusionStatistics},
-            generated_by = #{generatedBy}, template_id = #{templateId}, updated_by = #{updatedBy},
-            updated_at = #{updatedAt}
+        SET name = #{name}, description = #{description,jdbcType=VARCHAR}, equipment_type = #{equipmentType,jdbcType=VARCHAR},
+            top_event = #{topEvent,jdbcType=VARCHAR}, tree_data = #{treeData,jdbcType=CLOB}, version = #{version,jdbcType=INTEGER},
+            validation_status = #{validationStatus}, validation_message = #{validationMessage,jdbcType=VARCHAR},
+            source_doc_ids = #{sourceDocIds,jdbcType=VARCHAR}, source_detail = #{sourceDetail,jdbcType=VARCHAR},
+            publish_status = #{publishStatus}, fusion_statistics = #{fusionStatistics,jdbcType=VARCHAR},
+            generated_by = #{generatedBy,jdbcType=VARCHAR}, template_id = #{templateId,jdbcType=VARCHAR},
+            updated_by = #{updatedBy,jdbcType=VARCHAR}, updated_at = #{updatedAt,jdbcType=TIMESTAMP}
         WHERE tree_id = #{treeId}
     </update>
 

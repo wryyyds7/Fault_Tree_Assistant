@@ -38,14 +38,20 @@
 
     <insert id="insert">
         INSERT INTO paragraph_metadata (paragraph_id, doc_id, section_title, page_number, paragraph_number, text_length, keywords, confidence_score, content, source_type, credibility_weight, created_at, updated_at)
-        VALUES (#{paragraphId}, #{docId}, #{sectionTitle}, #{pageNumber}, #{paragraphNumber}, #{textLength}, #{keywords}, #{confidenceScore}, #{content}, #{sourceType}, #{credibilityWeight}, #{createdAt}, #{updatedAt})
+        VALUES (#{paragraphId}, #{docId}, #{sectionTitle,jdbcType=VARCHAR}, #{pageNumber,jdbcType=INTEGER}, #{paragraphNumber,jdbcType=INTEGER},
+            #{textLength,jdbcType=INTEGER}, #{keywords,jdbcType=VARCHAR}, #{confidenceScore,jdbcType=DOUBLE},
+            #{content,jdbcType=CLOB}, #{sourceType,jdbcType=VARCHAR}, #{credibilityWeight,jdbcType=DOUBLE},
+            #{createdAt,jdbcType=TIMESTAMP}, #{updatedAt,jdbcType=TIMESTAMP})
     </insert>
 
     <update id="update">
         UPDATE paragraph_metadata
-        SET section_title = #{sectionTitle}, page_number = #{pageNumber}, paragraph_number = #{paragraphNumber}, 
-            text_length = #{textLength}, keywords = #{keywords}, confidence_score = #{confidenceScore}, 
-            content = #{content}, source_type = #{sourceType}, credibility_weight = #{credibilityWeight}, updated_at = #{updatedAt}
+        SET section_title = #{sectionTitle,jdbcType=VARCHAR}, page_number = #{pageNumber,jdbcType=INTEGER},
+            paragraph_number = #{paragraphNumber,jdbcType=INTEGER},
+            text_length = #{textLength,jdbcType=INTEGER}, keywords = #{keywords,jdbcType=VARCHAR},
+            confidence_score = #{confidenceScore,jdbcType=DOUBLE},
+            content = #{content,jdbcType=CLOB}, source_type = #{sourceType,jdbcType=VARCHAR},
+            credibility_weight = #{credibilityWeight,jdbcType=DOUBLE}, updated_at = #{updatedAt,jdbcType=TIMESTAMP}
         WHERE paragraph_id = #{paragraphId}
     </update>
 

@@ -31,11 +31,13 @@ spring:
       max-request-size: 100MB
 
 server:
-  port: 8081
+  port: 8091
 
 # 文档存储配置
+# 文件存储路径，默认使用用户主目录下的 fta-data/documents
+# 可通过环境变量 DOCUMENT_STORAGE_PATH 或系统属性 project.root 自定义
 document:
   storage:
-    path: ${user.home}/fta-data/documents
+    path: ${DOCUMENT_STORAGE_PATH:${user.home}/fta-data/documents}
   ocr:
     tessdata: ./tessdata

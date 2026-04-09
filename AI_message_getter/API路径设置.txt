@@ -1,109 +1,374 @@
-API路径设置
+================================================================================
+                        API路径设置文档
+================================================================================
 
-1. auth-service
-   - POST /api/v1/auth/login
-   - 作用：用户登录，返回JWT token
-   - POST /api/v1/auth/register
-   - 作用：用户注册
+【更新日期】2026-04-08
+【项目路径】d:\bianchenglianxi\project\Fault_Tree_Assistant
 
-2. document-ingest-service
-   - POST /api/v1/documents/upload
-   - 作用：上传文档并开始解析流程
+================================================================================
+一、API网关入口
+================================================================================
 
-3. knowledge-graph-service
-   - POST /api/v1/kg/query-template
-   - 作用：查询故障树模板
-   - PUT /api/v1/kg/enrich
-   - 作用：丰富知识图谱
-   - POST /api/v1/kg/initialize
-   - 作用：初始化知识图谱本体
+  前端调用基础路径：/api/v1
+  网关地址：localhost:8080
+  Vite代理配置：/api → http://localhost:8080
 
-4. rule-validation-service
-   - POST /api/v1/validation/validate
-   - 作用：验证故障树逻辑（返回错误类型和建议）
+================================================================================
+二、服务端口映射
+================================================================================
 
-5. fault-tree-editor-service
-   - POST /api/v1/fault-trees
-   - 作用：创建新的故障树
-   - GET /api/v1/fault-trees/{treeId}
-   - 作用：获取指定故障树
-   - GET /api/v1/fault-trees
-   - 作用：获取所有故障树
-   - PUT /api/v1/fault-trees/{treeId}
-   - 作用：更新故障树
-   - DELETE /api/v1/fault-trees/{treeId}
-   - 作用：删除故障树
-   - POST /api/v1/fault-trees/{treeId}/nodes?parentEventId={parentEventId}
-   - 作用：在指定父节点下添加新节点
-   - PUT /api/v1/fault-trees/{treeId}/nodes
-   - 作用：更新指定节点
-   - DELETE /api/v1/fault-trees/{treeId}/nodes/{eventId}
-   - 作用：删除指定节点
-   - PUT /api/v1/fault-trees/{treeId}/nodes/{eventId}/move?newParentId={newParentId}
-   - 作用：移动节点到新的父节点
-   - PUT /api/v1/fault-trees/{treeId}/positions
-   - 作用：批量更新节点位置
-   - PUT /api/v1/fault-trees/{treeId}/nodes/{eventId}/confidence
-   - 作用：更新节点置信度和验证状态
-   - PUT /api/v1/fault-trees/{treeId}/nodes/{eventId}/verification
-   - 作用：更新节点验证状态
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│  服务名称                 端口       数据库                                       │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│  gateway-service          8080       -                                            │
+│  auth-service             8081       Oracle (auth_db)                            │
+│  knowledge-graph-service 8083       Neo4j                                        │
+│  feedback-learning-svc   8085       Oracle (feedback_db)                         │
+│  rule-validation-service 8087       -                                            │
+│  vector-store-service     8090       Oracle (fta_vector_db)                       │
+│  document-ingest-service  8091       -                                            │
+│  fault-tree-editor-svc   8092       Oracle (fta_db)                              │
+│  python rag-api.py        8001       -                                            │
+└─────────────────────────────────────────────────────────────────────────────────┘
 
-6. feedback-learning-service
-   - POST /api/v1/feedback
-   - 作用：创建反馈
-   - GET /api/v1/feedback/{feedbackId}
-   - 作用：获取指定反馈
-   - GET /api/v1/feedback/tree/{treeId}
-   - 作用：获取指定故障树的反馈
-   - GET /api/v1/feedback/user/{userId}
-   - 作用：获取指定用户的反馈
-   - GET /api/v1/feedback
-   - 作用：获取所有反馈
-   - POST /api/v1/feedback/process-batch
-   - 作用：处理批量反馈
-   - POST /api/v1/feedback/optimize-models
-   - 作用：优化模型
+================================================================================
+三、前端API调用结构 (src/api/index.js)
+================================================================================
 
-7. vector-store-service
-   - POST /api/v1/vector/documents
-   - 作用：创建文档元数据
-   - GET /api/v1/vector/documents/{docId}
-   - 作用：获取文档元数据
-   - PUT /api/v1/vector/documents/{docId}
-   - 作用：更新文档元数据
-   - DELETE /api/v1/vector/documents/{docId}
-   - 作用：删除文档元数据
-   - POST /api/v1/vector/documents/{docId}/paragraphs
-   - 作用：创建段落元数据
-   - GET /api/v1/vector/documents/{docId}/paragraphs
-   - 作用：获取文档的所有段落
-   - GET /api/v1/vector/paragraphs/{paragraphId}
-   - 作用：获取指定段落元数据
-   - POST /api/v1/vector/documents/{docId}/vectors
-   - 作用：为文档生成向量
-   - GET /api/v1/vector/documents/{docId}/vectors
-   - 作用：获取文档的所有向量
-   - POST /api/v1/vector/search
-   - 作用：向量相似性搜索
-   - POST /api/v1/vector/process
-   - 作用：完整流程（文档->段落->向量）
-   - GET /api/v1/vector/paragraphs/{paragraphId}/evidence
-   - 作用：获取段落溯源证据详情
-   - POST /api/v1/vector/search-with-evidence
-   - 作用：带溯源证据的搜索
+  基础配置：
+  - baseURL: '/api/v1'
+  - timeout: 30000ms
+  - 自动携带 JWT Token (Authorization: Bearer {token})
+  - 统一错误处理
 
-8. rag-generation-service (Python FastAPI)
-   - GET /api/v1/rag/health
-   - 作用：健康检查
-   - POST /api/v1/rag/generate
-   - 作用：触发故障树AI生成
-   - GET /api/v1/rag/tasks/{task_id}
-   - 作用：获取生成任务状态
-   - GET /api/v1/rag/evidence/{paragraph_id}
-   - 作用：获取段落溯源证据
-   - POST /api/v1/rag/evidence
-   - 作用：获取事件的溯源证据列表
+  ┌─────────────────────────────────────────────────────────────────────────────────┐
+  │  1. 认证相关 (auth)                                                             │
+  ├─────────────────────────────────────────────────────────────────────────────────┤
+  │                                                                                 │
+  │  POST   /auth/login           用户登录                                          │
+  │  POST   /auth/register        用户注册                                          │
+  │                                                                                 │
+  └─────────────────────────────────────────────────────────────────────────────────┘
 
-9. gateway-service
-   - 端口：8080
-   - 作用：API网关，统一路由所有服务请求
+  ┌─────────────────────────────────────────────────────────────────────────────────┐
+  │  2. 文档管理 (document)                                                         │
+  ├─────────────────────────────────────────────────────────────────────────────────┤
+  │                                                                                 │
+  │  POST   /documents/upload              上传文档 (multipart/form-data)           │
+  │  GET    /documents/{docId}            获取文档元数据                            │
+  │  GET    /documents/{docId}/content    获取文档内容                              │
+  │  GET    /documents                    获取文档列表                               │
+  │  DELETE /documents/{docId}            删除文档                                  │
+  │                                                                                 │
+  └─────────────────────────────────────────────────────────────────────────────────┘
+
+  ┌─────────────────────────────────────────────────────────────────────────────────┐
+  │  3. 故障树管理 (faultTree)                                                       │
+  ├─────────────────────────────────────────────────────────────────────────────────┤
+  │                                                                                 │
+  │  GET    /fault-trees                 获取故障树列表 (分页/过滤)                   │
+  │  GET    /fault-trees/{treeId}        获取故障树详情                              │
+  │  POST   /fault-trees                 创建故障树                                  │
+  │  PUT    /fault-trees/{treeId}        更新故障树                                 │
+  │  DELETE /fault-trees/{treeId}        删除故障树                                 │
+  │                                                                                 │
+  │  节点操作：                                                                      │
+  │  POST   /fault-trees/{treeId}/nodes                           添加节点           │
+  │          参数: parentEventId (query)                                        │
+  │  PUT    /fault-trees/{treeId}/nodes                           更新节点           │
+  │  DELETE /fault-trees/{treeId}/nodes/{eventId}              删除节点           │
+  │  PUT    /fault-trees/{treeId}/nodes/{eventId}/move          移动节点           │
+  │          参数: newParentId (query)                                          │
+  │  PUT    /fault-trees/{treeId}/positions                    更新节点位置       │
+  │  PUT    /fault-trees/{treeId}/nodes/{eventId}/confidence   更新置信度         │
+  │          Body: { confidence, verificationStatus }                            │
+  │  PUT    /fault-trees/{treeId}/nodes/{eventId}/verification 更新验证状态       │
+  │          Body: { status }                                                   │
+  │                                                                                 │
+  └─────────────────────────────────────────────────────────────────────────────────┘
+
+  ┌─────────────────────────────────────────────────────────────────────────────────┐
+  │  4. 规则校验 (validation)                                                       │
+  ├─────────────────────────────────────────────────────────────────────────────────┤
+  │                                                                                 │
+  │  POST   /validation/validate    校验故障树                                      │
+  │                                                                                 │
+  └─────────────────────────────────────────────────────────────────────────────────┘
+
+  ┌─────────────────────────────────────────────────────────────────────────────────┐
+  │  5. RAG生成 (rag)                                                               │
+  ├─────────────────────────────────────────────────────────────────────────────────┤
+  │                                                                                 │
+  │  POST   /rag/generate                 生成故障树任务                              │
+  │          Body: { description, equipmentType, knowledgeDriven, dataDriven }    │
+  │  GET    /rag/tasks/{taskId}           获取任务状态                               │
+  │  GET    /rag/evidence/{paragraphId}  获取证据段落                               │
+  │  POST   /rag/evidence                 批量获取证据                              │
+  │                                                                                 │
+  └─────────────────────────────────────────────────────────────────────────────────┘
+
+  ┌─────────────────────────────────────────────────────────────────────────────────┐
+  │  6. 知识图谱 (knowledgeGraph)                                                    │
+  ├─────────────────────────────────────────────────────────────────────────────────┤
+  │                                                                                 │
+  │  POST   /kg/query-template   查询模板 (三层匹配)                                │
+  │  PUT    /kg/enrich           知识丰富化                                        │
+  │  POST   /kg/initialize       初始化本体                                        │
+  │                                                                                 │
+  └─────────────────────────────────────────────────────────────────────────────────┘
+
+  ┌─────────────────────────────────────────────────────────────────────────────────┐
+  │  7. 向量存储 (vector)                                                            │
+  ├─────────────────────────────────────────────────────────────────────────────────┤
+  │                                                                                 │
+  │  POST   /vector/search                  向量相似度搜索                           │
+  │  POST   /vector/search-with-evidence   带证据搜索                               │
+  │  GET    /vector/paragraphs/{paragraphId}/evidence  获取段落证据                 │
+  │                                                                                 │
+  └─────────────────────────────────────────────────────────────────────────────────┘
+
+  ┌─────────────────────────────────────────────────────────────────────────────────┐
+  │  8. 反馈学习 (feedback)                                                          │
+  ├─────────────────────────────────────────────────────────────────────────────────┤
+  │                                                                                 │
+  │  POST   /feedback                        创建反馈                               │
+  │  GET    /feedback/{feedbackId}           获取反馈详情                           │
+  │  GET    /feedback/tree/{treeId}          按故障树获取反馈                       │
+  │  GET    /feedback/user/{userId}          按用户获取反馈                         │
+  │  GET    /feedback                        获取所有反馈                           │
+  │  POST   /feedback/process-batch          批量处理反馈                           │
+  │  POST   /feedback/optimize-models       优化模型                               │
+  │                                                                                 │
+  └─────────────────────────────────────────────────────────────────────────────────┘
+
+  ┌─────────────────────────────────────────────────────────────────────────────────┐
+  │  9. 统计 (stats)                                                                │
+  ├─────────────────────────────────────────────────────────────────────────────────┤
+  │                                                                                 │
+  │  GET    /stats/dashboard              获取仪表盘统计                             │
+  │                                                                                 │
+  └─────────────────────────────────────────────────────────────────────────────────┘
+
+================================================================================
+四、后端Controller接口映射
+================================================================================
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│  auth-service (8081)                                                             │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│  AuthController.java                                                            │
+│  └── @RequestMapping("/auth") 或 "/api/v1/auth"                                 │
+│      ├── @PostMapping("/login")         → /auth/login                           │
+│      └── @PostMapping("/register")      → /auth/register                        │
+│                                                                                 │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│  document-ingest-service (8091)                                                  │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│  DocumentController.java                                                        │
+│  └── @RequestMapping("/documents") 或 "/api/v1/documents"                       │
+│      ├── @PostMapping("/upload")         → /documents/upload                    │
+│      ├── @GetMapping("/{docId}")          → /documents/{docId}                  │
+│      ├── @GetMapping("/{docId}/content") → /documents/{docId}/content           │
+│      ├── @GetMapping                     → /documents                          │
+│      └── @DeleteMapping("/{docId}")       → /documents/{docId}                   │
+│                                                                                 │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│  fault-tree-editor-service (8092)                                                │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│  FaultTreeEditorController.java                                                 │
+│  └── @RequestMapping("/fault-trees") 或 "/api/v1/fault-trees"                    │
+│      ├── @GetMapping                    → /fault-trees                         │
+│      ├── @GetMapping("/{treeId}")        → /fault-trees/{treeId}                │
+│      ├── @PostMapping                   → /fault-trees                         │
+│      ├── @PutMapping("/{treeId}")        → /fault-trees/{treeId}                │
+│      ├── @DeleteMapping("/{treeId}")    → /fault-trees/{treeId}                │
+│      ├── @PostMapping("/{treeId}/nodes") → /fault-trees/{treeId}/nodes         │
+│      ├── @PutMapping("/{treeId}/nodes")  → /fault-trees/{treeId}/nodes         │
+│      ├── @DeleteMapping("/.../{eventId}") → /fault-trees/{treeId}/nodes/{eventId}│
+│      └── ... 其他节点操作接口                                                    │
+│                                                                                 │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│  rule-validation-service (8087)                                                   │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│  ValidationController.java                                                      │
+│  └── @RequestMapping("/validation") 或 "/api/v1/validation"                      │
+│      └── @PostMapping("/validate")     → /validation/validate                   │
+│                                                                                 │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│  knowledge-graph-service (8083)                                                  │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│  KnowledgeGraphController.java                                                  │
+│  └── @RequestMapping("/kg") 或 "/api/v1/kg"                                      │
+│      ├── @PostMapping("/query-template") → /kg/query-template                  │
+│      ├── @PutMapping("/enrich")           → /kg/enrich                         │
+│      └── @PostMapping("/initialize")      → /kg/initialize                      │
+│                                                                                 │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│  vector-store-service (8090)                                                      │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│  VectorStoreController.java                                                     │
+│  └── @RequestMapping("/vector") 或 "/api/v1/vector"                               │
+│      ├── @PostMapping("/search")                → /vector/search                │
+│      ├── @PostMapping("/search-with-evidence")  → /vector/search-with-evidence │
+│      ├── @GetMapping("/paragraphs/{paragraphId}/evidence")                      │
+│      │                                              → /vector/paragraphs/...    │
+│      └── @PostMapping("/documents/{docId}/paragraphs")                          │
+│                                                     → /vector/documents/...     │
+│                                                                                 │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│  feedback-learning-service (8085)                                                 │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│  FeedbackController.java                                                        │
+│  └── @RequestMapping("/feedback") 或 "/api/v1/feedback"                          │
+│      ├── @PostMapping                     → /feedback                          │
+│      ├── @GetMapping("/{feedbackId}")      → /feedback/{feedbackId}            │
+│      ├── @GetMapping("/tree/{treeId}")     → /feedback/tree/{treeId}           │
+│      ├── @GetMapping("/user/{userId}")     → /feedback/user/{userId}           │
+│      ├── @GetMapping                     → /feedback                           │
+│      ├── @PostMapping("/process-batch")   → /feedback/process-batch           │
+│      └── @PostMapping("/optimize-models") → /feedback/optimize-models         │
+│                                                                                 │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+================================================================================
+五、Python RAG服务接口 (8001)
+================================================================================
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│  rag_api.py (FastAPI)                                                            │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│  @app.post("/rag/generate")         故障树生成                                  │
+│  @app.get("/rag/tasks/{task_id}")   任务状态查询                                │
+│  @app.get("/rag/evidence/{para_id}") 证据查询                                    │
+│                                                                                 │
+│  rag_consumer.py (后台RabbitMQ消费者)                                           │
+│  └── 消费 queue.rag.generate 队列                                                │
+│                                                                                 │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+================================================================================
+六、WebSocket端点
+================================================================================
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│  前端连接方式 (SockJS + STOMP)                                                   │
+├─────────────────────────────────────────────────────────────────────────────────┤
+                                                                                 │
+│  URL: /ws                                                                 │
+│                                                                                 │
+│  STOMP订阅：                                                                    │
+│  ├── /topic/fault-tree/{treeId}     故障树编辑实时更新                         │
+│  ├── /topic/validation/{treeId}     校验结果推送                               │
+│  └── /topic/rag/task/{taskId}       RAG任务进度推送                            │
+│                                                                                 │
+│  后端WebSocket端点：                                                            │
+│  ├── /ws/fault-tree/{treeId}       故障树编辑器                               │
+│  └── /ws/validation/{treeId}       校验结果推送                               │
+│                                                                                 │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+================================================================================
+七、完整API路径汇总表
+================================================================================
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│  方法      路径                                  服务               功能         │
+├─────────────────────────────────────────────────────────────────────────────────┤
+  POST     /api/v1/auth/login                  auth-service         用户登录
+  POST     /api/v1/auth/register               auth-service         用户注册
+                                                                                 │
+  POST     /api/v1/documents/upload            document-ingest      上传文档
+  GET      /api/v1/documents/{docId}           document-ingest      获取文档
+  GET      /api/v1/documents/{docId}/content  document-ingest      获取内容
+  GET      /api/v1/documents                  document-ingest      文档列表
+  DELETE   /api/v1/documents/{docId}           document-ingest      删除文档
+                                                                                 │
+  GET      /api/v1/fault-trees                fault-tree-editor    列表查询
+  GET      /api/v1/fault-trees/{treeId}        fault-tree-editor    获取详情
+  POST     /api/v1/fault-trees                fault-tree-editor    创建树
+  PUT      /api/v1/fault-trees/{treeId}        fault-tree-editor    更新树
+  DELETE   /api/v1/fault-trees/{treeId}        fault-tree-editor    删除树
+  POST     /api/v1/fault-trees/{treeId}/nodes  fault-tree-editor    添加节点
+  PUT      /api/v1/fault-trees/{treeId}/nodes  fault-tree-editor    更新节点
+  DELETE   /api/v1/fault-trees/{treeId}/nodes/{eventId}  fault-tree-editor  删除节点
+  PUT      /api/v1/fault-trees/{treeId}/nodes/{eventId}/move  fault-tree-editor  移动节点
+  PUT      /api/v1/fault-trees/{treeId}/positions  fault-tree-editor  更新位置
+  PUT      /api/v1/fault-trees/{treeId}/nodes/{eventId}/confidence  fault-tree-editor  置信度
+  PUT      /api/v1/fault-trees/{treeId}/nodes/{eventId}/verification  fault-tree-editor  验证状态
+                                                                                 │
+  POST     /api/v1/validation/validate        rule-validation      校验故障树
+                                                                                 │
+  POST     /api/v1/rag/generate               rag-service (Python) 生成故障树
+  GET      /api/v1/rag/tasks/{taskId}         rag-service (Python) 任务状态
+  GET      /api/v1/rag/evidence/{paragraphId} rag-service (Python) 证据查询
+  POST     /api/v1/rag/evidence               rag-service (Python) 批量证据
+                                                                                 │
+  POST     /api/v1/kg/query-template           knowledge-graph      模板查询
+  PUT      /api/v1/kg/enrich                   knowledge-graph      知识丰富
+  POST     /api/v1/kg/initialize               knowledge-graph      初始化
+                                                                                 │
+  POST     /api/v1/vector/search               vector-store         向量搜索
+  POST     /api/v1/vector/search-with-evidence vector-store        带证据搜索
+  GET      /api/v1/vector/paragraphs/{paragraphId}/evidence  vector-store  段落证据
+                                                                                 │
+  POST     /api/v1/feedback                    feedback-learning    创建反馈
+  GET      /api/v1/feedback/{feedbackId}       feedback-learning    反馈详情
+  GET      /api/v1/feedback/tree/{treeId}      feedback-learning    树反馈
+  GET      /api/v1/feedback/user/{userId}      feedback-learning    用户反馈
+  GET      /api/v1/feedback                    feedback-learning    反馈列表
+  POST     /api/v1/feedback/process-batch      feedback-learning    批量处理
+  POST     /api/v1/feedback/optimize-models    feedback-learning    模型优化
+                                                                                 │
+  GET      /api/v1/stats/dashboard             gateway              仪表盘统计
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+================================================================================
+八、前端代理配置 (vite.config.js)
+================================================================================
+
+  server: {
+    port: 3001,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8080',
+        changeOrigin: true
+      },
+      '/ws': {
+        target: 'http://localhost:8080',
+        ws: true
+      }
+    }
+  }
+
+================================================================================
+九、跨域配置
+================================================================================
+
+  CORS已在前端配置允许携带认证信息
+  - credentials: true
+  - 允许域: 通常由网关配置决定
+
+================================================================================
+
+*文档版本：2.0*
+*最后更新：2026-04-08*

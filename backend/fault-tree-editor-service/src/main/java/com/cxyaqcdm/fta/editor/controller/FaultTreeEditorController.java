@@ -1,12 +1,12 @@
 package com.cxyaqcdm.fta.editor.controller;
 
+import com.cxyaqcdm.fta.common.context.UserContext;
 import com.cxyaqcdm.fta.common.dto.FaultTreeDTO;
+import com.cxyaqcdm.fta.editor.entity.FaultTreeEntity;
 import com.cxyaqcdm.fta.editor.service.FaultTreeEditorService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -22,11 +22,19 @@ public class FaultTreeEditorController {
     private final FaultTreeEditorService faultTreeEditorService;
 
     private String getCurrentUserId() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication != null && authentication.isAuthenticated()) {
-            return authentication.getName();
+        UserContext userContext = UserContext.getCurrentUser();
+        if (userContext != null) {
+            return userContext.getUserId();
         }
-        throw new RuntimeException("User not authenticated");
+        return null;
+    }
+
+    private String getCurrentUserRole() {
+        UserContext userContext = UserContext.getCurrentUser();
+        if (userContext != null) {
+            return userContext.getRole();
+        }
+        return "USER";
     }
 
     @PostMapping
@@ -49,7 +57,16 @@ public class FaultTreeEditorController {
 
     @GetMapping
     public ResponseEntity<List<FaultTreeDTO>> getAllFaultTrees() {
-        var entities = faultTreeEditorService.getAllFaultTrees();
+        String role = getCurrentUserRole();
+        String currentUserId = getCurrentUserId();
+        List<FaultTreeEntity> entities;
+
+        if ("ADMIN".equals(role)) {
+            entities = faultTreeEditorService.getAllFaultTrees();
+        } else {
+            entities = faultTreeEditorService.getFaultTreesByCreatedBy(currentUserId);
+        }
+
         var dtos = entities.stream()
                 .map(faultTreeEditorService::convertToDTO)
                 .collect(Collectors.toList());

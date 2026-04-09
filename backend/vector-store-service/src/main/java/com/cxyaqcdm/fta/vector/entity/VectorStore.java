@@ -16,6 +16,7 @@ public class VectorStore {
     private String createdBy;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private String userId;
     
     public void setCreatedAt() {
         this.createdAt = LocalDateTime.now();

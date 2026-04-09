@@ -13,4 +13,6 @@ public interface AuthService {
     String generateRefreshToken(UserEntity user);
     boolean validateToken(String token);
     String getUsernameFromToken(String token);
+    String getRoleFromToken(String token);
+    String getUserIdFromToken(String token);
 }

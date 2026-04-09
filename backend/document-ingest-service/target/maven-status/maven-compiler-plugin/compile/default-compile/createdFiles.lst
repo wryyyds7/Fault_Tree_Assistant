@@ -1,6 +1,7 @@
 com\cxyaqcdm\fta\document\service\semantic\SemanticParagraph$EntityType.class
 com\cxyaqcdm\fta\document\service\semantic\SemanticParagraphBuilder$TextBlock.class
 com\cxyaqcdm\fta\document\listener\DocumentParseListener.class
+com\cxyaqcdm\fta\document\service\impl\DocumentServiceImpl$1.class
 com\cxyaqcdm\fta\document\service\semantic\CausalRelationExtractor$CausalPattern.class
 com\cxyaqcdm\fta\document\service\semantic\SemanticParagraphBuilder$SectionPattern.class
 com\cxyaqcdm\fta\document\service\impl\DocumentServiceImpl.class

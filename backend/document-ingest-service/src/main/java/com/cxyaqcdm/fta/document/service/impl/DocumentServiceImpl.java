@@ -17,6 +17,9 @@ import org.apache.poi.xwpf.usermodel.XWPFParagraph;
 import org.apache.poi.xwpf.usermodel.XWPFTable;
 import org.apache.poi.xwpf.usermodel.XWPFTableCell;
 import org.apache.poi.xwpf.usermodel.XWPFTableRow;
+import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.apache.poi.hssf.usermodel.HSSFWorkbook;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -39,57 +42,81 @@ public class DocumentServiceImpl implements DocumentService {
     private final RabbitTemplate rabbitTemplate;
     private final VectorStoreClient vectorStoreClient;
 
-
-
     @Value("${document.storage.path}")
     private String storagePath;
 
-    private String currentSourceType = "unknown";
-    private String currentEquipmentType = null;
-    private Boolean currentPersistToKnowledgeBase = false;
-    private String currentDocId = null;
+    /**
+     * 获取存储目录的绝对路径
+     * 支持环境变量和系统属性覆盖
+     */
+    private Path getStorageDirectory() {
+        String path = storagePath;
+        
+        // 如果配置了项目根目录系统属性，使用它
+        String projectRoot = System.getProperty("project.root");
+        if (projectRoot != null && !projectRoot.isEmpty()) {
+            path = projectRoot + "/fta-data/documents";
+        }
+        
+        // 解析路径（支持 ~ 表示用户主目录）
+        if (path.startsWith("~")) {
+            path = System.getProperty("user.home") + path.substring(1);
+        }
+        
+        return Paths.get(path).toAbsolutePath().normalize();
+    }
 
     @Override
-    public Map<String, Object> uploadDocument(MultipartFile file, String sourceType, String equipmentType, Boolean persistToKnowledgeBase) {
+    public Map<String, Object> uploadDocument(MultipartFile file, String sourceType, String equipmentType, Boolean persistToKnowledgeBase, String userId) {
         Map<String, Object> result = new HashMap<>();
         try {
             String docId = "doc_" + UUID.randomUUID().toString().replace("-", "");
 
-            Path storageDir = Paths.get(storagePath);
+            Path storageDir = getStorageDirectory();
+            log.info("Storage directory: {}", storageDir);
+
             if (!Files.exists(storageDir)) {
                 Files.createDirectories(storageDir);
+                log.info("Created storage directory: {}", storageDir);
+            }
+
+            Path userDir = storageDir.resolve(userId != null ? userId : "anonymous");
+            if (!Files.exists(userDir)) {
+                Files.createDirectories(userDir);
             }
 
             String fileName = docId + "_" + file.getOriginalFilename();
-            Path filePath = storageDir.resolve(fileName);
+            Path filePath = userDir.resolve(fileName);
             file.transferTo(filePath.toFile());
 
-            this.currentSourceType = sourceType != null ? sourceType : "unknown";
-            this.currentEquipmentType = equipmentType;
-            this.currentPersistToKnowledgeBase = persistToKnowledgeBase != null ? persistToKnowledgeBase : false;
-            this.currentDocId = docId;
+            String actualSourceType = sourceType != null ? sourceType : "manual";
+            String actualEquipmentType = (equipmentType != null && !equipmentType.isEmpty()) ? equipmentType : null;
+            Boolean actualPersistToKnowledgeBase = persistToKnowledgeBase != null ? persistToKnowledgeBase : true;
 
             result.put("docId", docId);
-            result.put("status", "queued");
+            result.put("documentId", docId);
+            result.put("status", "解析中");
             result.put("pageCount", 0);
-            result.put("sourceType", this.currentSourceType);
-            result.put("equipmentType", this.currentEquipmentType);
-            result.put("persistToKnowledgeBase", this.currentPersistToKnowledgeBase);
+            result.put("sourceType", actualSourceType);
+            result.put("equipmentType", actualEquipmentType);
+            result.put("persistToKnowledgeBase", actualPersistToKnowledgeBase);
+            result.put("userId", userId);
 
             Map<String, Object> message = new HashMap<>();
             message.put("docId", docId);
-            message.put("sourceType", this.currentSourceType);
-            message.put("equipmentType", this.currentEquipmentType);
-            message.put("persistToKnowledgeBase", this.currentPersistToKnowledgeBase);
+            message.put("sourceType", actualSourceType);
+            message.put("equipmentType", actualEquipmentType);
+            message.put("persistToKnowledgeBase", actualPersistToKnowledgeBase);
             message.put("fileName", file.getOriginalFilename());
             message.put("fileType", getFileExtension(file.getOriginalFilename()));
+            message.put("userId", userId);
 
             rabbitTemplate.convertAndSend(
                     AmqpConstants.QUEUE_DOCUMENT_PARSE,
                     message
             );
 
-            log.info("Document uploaded successfully: {}, sourceType: {}", docId, this.currentSourceType);
+            log.info("Document uploaded successfully: {}, sourceType: {}, userId: {}", docId, actualSourceType, userId);
         } catch (IOException e) {
             log.error("Failed to upload document: {}", e.getMessage());
             result.put("status", "error");
@@ -99,23 +126,20 @@ public class DocumentServiceImpl implements DocumentService {
     }
 
     @Override
-    public void processDocument(String docId) {
-        //TODO:看看下面的方法怎么改
-    }
-
-//    @Override
-    public void processDocument(Object messageObj) {
+    public void processDocument(Map<String, Object> message) {
         try {
-            Map<String, Object> message = (Map<String, Object>) messageObj;
             String docId = (String) message.get("docId");
-            String sourceType = (String) message.getOrDefault("sourceType", "unknown");
+            String sourceType = (String) message.getOrDefault("sourceType", "manual");
             String equipmentType = (String) message.get("equipmentType");
-            Boolean persistToKnowledgeBase = (Boolean) message.getOrDefault("persistToKnowledgeBase", false);
+            Boolean persistToKnowledgeBase = (Boolean) message.getOrDefault("persistToKnowledgeBase", true);
             String fileName = (String) message.get("fileName");
+            String userId = (String) message.get("userId");
 
-            Path storageDir = Paths.get(storagePath);
-            File[] files = storageDir.toFile().listFiles((dir, name) -> name.startsWith(docId));
+            Path storageDir = getStorageDirectory();
+            Path userDir = storageDir.resolve(userId != null ? userId : "anonymous");
+            File[] files = userDir.toFile().listFiles((dir, name) -> name.startsWith(docId));
             if (files == null || files.length == 0) {
+                log.error("Document file not found in directory: {}, docId: {}", userDir, docId);
                 throw new IOException("Document file not found: " + docId);
             }
             File documentFile = files[0];
@@ -138,6 +162,15 @@ public class DocumentServiceImpl implements DocumentService {
                 case "docx":
                     content = parseDocx(documentFile);
                     pageCount = countDocxPages(documentFile);
+                    break;
+                case "xlsx":
+                case "xls":
+                    content = parseExcel(documentFile);
+                    pageCount = 1;
+                    break;
+                case "csv":
+                    content = parseCsv(documentFile);
+                    pageCount = 1;
                     break;
                 default:
                     throw new IOException("Unsupported file type: " + fileExtension);
@@ -171,6 +204,7 @@ public class DocumentServiceImpl implements DocumentService {
                 vectorRequest.put("sourceType", sourceType);
                 vectorRequest.put("credibilityWeight", getCredibilityWeightBySourceType(sourceType));
                 vectorRequest.put("persistToKnowledgeBase", persistToKnowledgeBase);
+                vectorRequest.put("userId", userId);
                 vectorRequest.put("paragraphs", paragraphs);
 
                 vectorStoreClient.processDocument(vectorRequest);
@@ -193,18 +227,25 @@ public class DocumentServiceImpl implements DocumentService {
             );
 
             log.info("Document processed successfully: {}, page count: {}", docId, pageCount);
+            
+            Path parsedContentPath = storageDir.resolve(docId + "_parsed.txt");
+            Files.writeString(parsedContentPath, content);
+            log.info("Parsed content saved to: {}", parsedContentPath);
         } catch (Exception e) {
             log.error("Failed to process document: {}", e.getMessage());
-            Map<String, Object> event = new HashMap<>();
-            event.put("docId", "unknown");
-            event.put("status", "error");
-            event.put("message", e.getMessage());
+            String actualDocId = (String) message.get("docId");
+            if (actualDocId != null) {
+                Map<String, Object> event = new HashMap<>();
+                event.put("docId", actualDocId);
+                event.put("status", "error");
+                event.put("message", e.getMessage());
 
-            rabbitTemplate.convertAndSend(
-                    AmqpConstants.EXCHANGE_DOCUMENT,
-                    AmqpConstants.ROUTING_KEY_DOCUMENT_PARSED,
-                    event
-            );
+                rabbitTemplate.convertAndSend(
+                        AmqpConstants.EXCHANGE_DOCUMENT,
+                        AmqpConstants.ROUTING_KEY_DOCUMENT_PARSED,
+                        event
+                );
+            }
         }
     }
 
@@ -212,17 +253,53 @@ public class DocumentServiceImpl implements DocumentService {
     public Map<String, Object> getDocumentContent(String docId) {
         Map<String, Object> result = new HashMap<>();
         try {
-            Path storageDir = Paths.get(storagePath);
-            File[] files = storageDir.toFile().listFiles((dir, name) -> name.startsWith(docId));
-            if (files == null || files.length == 0) {
-                return null;
+            Path storageDir = getStorageDirectory();
+            
+            Path parsedContentPath = storageDir.resolve(docId + "_parsed.txt");
+            String content = "";
+            if (Files.exists(parsedContentPath)) {
+                content = Files.readString(parsedContentPath);
+            } else {
+                File[] files = storageDir.toFile().listFiles((dir, name) -> name.startsWith(docId) && !name.endsWith("_parsed.txt"));
+                if (files != null && files.length > 0) {
+                    File documentFile = files[0];
+                    String fileExtension = getFileExtension(documentFile.getName()).toLowerCase();
+                    
+                    try {
+                        switch (fileExtension) {
+                            case "pdf":
+                                content = parsePdf(documentFile);
+                                break;
+                            case "txt":
+                                content = parseTxt(documentFile);
+                                break;
+                            case "docx":
+                                content = parseDocx(documentFile);
+                                break;
+                            case "xlsx":
+                            case "xls":
+                                content = parseExcel(documentFile);
+                                break;
+                            case "csv":
+                                content = parseCsv(documentFile);
+                                break;
+                            default:
+                                content = "不支持的文件格式";
+                        }
+                    } catch (Exception e) {
+                        log.error("Failed to parse document on demand: {}", e.getMessage());
+                        content = "文档解析失败: " + e.getMessage();
+                    }
+                }
             }
-            File documentFile = files[0];
-            String content = Files.readString(documentFile.toPath());
 
             result.put("docId", docId);
             result.put("content", content);
-            result.put("fileName", documentFile.getName());
+            
+            File[] originalFiles = storageDir.toFile().listFiles((dir, name) -> name.startsWith(docId) && !name.endsWith("_parsed.txt"));
+            if (originalFiles != null && originalFiles.length > 0) {
+                result.put("fileName", originalFiles[0].getName());
+            }
 
             return result;
         } catch (IOException e) {
@@ -234,13 +311,44 @@ public class DocumentServiceImpl implements DocumentService {
     @Override
     public List<Map<String, Object>> getDocumentParagraphs(String docId) {
         try {
-            Path storageDir = Paths.get(storagePath);
-            File[] files = storageDir.toFile().listFiles((dir, name) -> name.startsWith(docId));
-            if (files == null || files.length == 0) {
-                return new ArrayList<>();
+            Path storageDir = getStorageDirectory();
+            Path parsedContentPath = storageDir.resolve(docId + "_parsed.txt");
+            
+            String content = "";
+            if (Files.exists(parsedContentPath)) {
+                content = Files.readString(parsedContentPath);
+            } else {
+                File[] files = storageDir.toFile().listFiles((dir, name) -> name.startsWith(docId) && !name.endsWith("_parsed.txt"));
+                if (files != null && files.length > 0) {
+                    File documentFile = files[0];
+                    String fileExtension = getFileExtension(documentFile.getName()).toLowerCase();
+                    
+                    try {
+                        switch (fileExtension) {
+                            case "pdf":
+                                content = parsePdf(documentFile);
+                                break;
+                            case "txt":
+                                content = parseTxt(documentFile);
+                                break;
+                            case "docx":
+                                content = parseDocx(documentFile);
+                                break;
+                            case "xlsx":
+                            case "xls":
+                                content = parseExcel(documentFile);
+                                break;
+                            case "csv":
+                                content = parseCsv(documentFile);
+                                break;
+                            default:
+                                content = "";
+                        }
+                    } catch (Exception e) {
+                        log.error("Failed to parse document for paragraphs: {}", e.getMessage());
+                    }
+                }
             }
-            File documentFile = files[0];
-            String content = Files.readString(documentFile.toPath());
 
             List<Map<String, Object>> paragraphs = new ArrayList<>();
             String[] contentLines = content.split("\n");
@@ -261,32 +369,65 @@ public class DocumentServiceImpl implements DocumentService {
     }
 
     @Override
-    public List<Map<String, Object>> getAllDocuments() {
+    public List<Map<String, Object>> getAllDocuments(String userId) {
         List<Map<String, Object>> documents = new ArrayList<>();
         try {
-            Path storageDir = Paths.get(storagePath);
+            Path storageDir = getStorageDirectory();
             if (!Files.exists(storageDir)) {
                 return documents;
             }
-            File[] files = storageDir.toFile().listFiles();
-            if (files == null) {
+
+            File[] userDirs;
+            if (userId == null || userId.isEmpty()) {
+                userDirs = storageDir.toFile().listFiles(File::isDirectory);
+            } else {
+                Path userDir = storageDir.resolve(userId);
+                if (!Files.exists(userDir)) {
+                    return documents;
+                }
+                userDirs = new File[]{userDir.toFile()};
+            }
+
+            if (userDirs == null) {
                 return documents;
             }
-            for (File file : files) {
-                if (file.isFile()) {
-                    String fileName = file.getName();
-                    int underscoreIndex = fileName.indexOf('_');
-                    String docId = underscoreIndex > 0 ? fileName.substring(0, underscoreIndex) : fileName;
-                    String originalFileName = underscoreIndex > 0 ? fileName.substring(underscoreIndex + 1) : fileName;
 
-                    Map<String, Object> doc = new HashMap<>();
-                    doc.put("documentId", docId);
-                    doc.put("fileName", originalFileName);
-                    doc.put("fileType", getFileExtension(originalFileName));
-                    doc.put("size", file.length());
-                    doc.put("uploadTime", java.time.Instant.ofEpochMilli(file.lastModified()).toString());
-                    doc.put("status", "已解析");
-                    documents.add(doc);
+            java.util.Set<String> addedDocIds = new java.util.HashSet<>();
+
+            for (File userDir : userDirs) {
+                String currentUserId = userDir.getName();
+                File[] files = userDir.listFiles();
+                if (files == null) {
+                    continue;
+                }
+
+                for (File file : files) {
+                    if (file.isFile() && !file.getName().endsWith("_parsed.txt")) {
+                        String fileName = file.getName();
+                        int underscoreIndex = fileName.indexOf('_');
+                        String docId = underscoreIndex > 0 ? fileName.substring(0, underscoreIndex) : fileName;
+                        String uniqueKey = currentUserId + ":" + docId;
+
+                        if (addedDocIds.contains(uniqueKey)) {
+                            continue;
+                        }
+                        addedDocIds.add(uniqueKey);
+
+                        String originalFileName = underscoreIndex > 0 ? fileName.substring(underscoreIndex + 1) : fileName;
+
+                        Map<String, Object> doc = new HashMap<>();
+                        doc.put("documentId", docId);
+                        doc.put("fileName", originalFileName);
+                        doc.put("fileType", getFileExtension(originalFileName));
+                        doc.put("size", file.length());
+                        doc.put("uploadTime", java.time.Instant.ofEpochMilli(file.lastModified()).toString());
+                        doc.put("userId", currentUserId);
+
+                        Path parsedContentPath = userDir.toPath().resolve(docId + "_parsed.txt");
+                        doc.put("status", Files.exists(parsedContentPath) ? "已解析" : "解析中");
+
+                        documents.add(doc);
+                    }
                 }
             }
         } catch (Exception e) {
@@ -304,7 +445,6 @@ public class DocumentServiceImpl implements DocumentService {
         StringBuilder content = new StringBuilder();
         try (PDDocument document = PDDocument.load(file)) {
             PDFTextStripper stripper = new PDFTextStripper();
-            // 按页提取文本
             for (int pageNum = 1; pageNum <= document.getNumberOfPages(); pageNum++) {
                 stripper.setStartPage(pageNum);
                 stripper.setEndPage(pageNum);
@@ -326,7 +466,7 @@ public class DocumentServiceImpl implements DocumentService {
             return document.getNumberOfPages();
         } catch (Exception e) {
             log.error("Failed to count PDF pages: {}", e.getMessage());
-            return 1; // 默认返回1页
+            return 1;
         }
     }
 
@@ -339,17 +479,14 @@ public class DocumentServiceImpl implements DocumentService {
         try (FileInputStream fis = new FileInputStream(file);
              XWPFDocument document = new XWPFDocument(fis)) {
 
-            // 提取段落
             List<XWPFParagraph> paragraphs = document.getParagraphs();
-            for (int i = 0; i < paragraphs.size(); i++) {
-                XWPFParagraph paragraph = paragraphs.get(i);
+            for (XWPFParagraph paragraph : paragraphs) {
                 String text = paragraph.getText().trim();
                 if (!text.isEmpty()) {
                     content.append(text).append("\n");
                 }
             }
 
-            // 提取表格
             List<XWPFTable> tables = document.getTables();
             for (int tableIndex = 0; tableIndex < tables.size(); tableIndex++) {
                 XWPFTable table = tables.get(tableIndex);
@@ -380,8 +517,6 @@ public class DocumentServiceImpl implements DocumentService {
     private int countDocxPages(File file) {
         try (FileInputStream fis = new FileInputStream(file);
              XWPFDocument document = new XWPFDocument(fis)) {
-            // DOCX 没有直接的页数信息，这里返回一个估算值
-            // 基于段落数量估算，每50个段落算一页
             int paragraphCount = document.getParagraphs().size();
             return Math.max(1, paragraphCount / 50);
         } catch (Exception e) {
@@ -390,10 +525,66 @@ public class DocumentServiceImpl implements DocumentService {
         }
     }
 
+    private String parseExcel(File file) throws IOException {
+        StringBuilder content = new StringBuilder();
+        String fileExtension = getFileExtension(file.getName()).toLowerCase();
+
+        try (FileInputStream fis = new FileInputStream(file);
+             Workbook workbook = "xlsx".equals(fileExtension) ? new XSSFWorkbook(fis) : new HSSFWorkbook(fis)) {
+
+            int numberOfSheets = workbook.getNumberOfSheets();
+            for (int i = 0; i < numberOfSheets; i++) {
+                Sheet sheet = workbook.getSheetAt(i);
+                content.append("=== Sheet: ").append(sheet.getSheetName()).append(" ===\n");
+
+                for (Row row : sheet) {
+                    StringBuilder rowContent = new StringBuilder();
+                    for (Cell cell : row) {
+                        String cellValue = getCellValueAsString(cell);
+                        rowContent.append(cellValue).append("\t");
+                    }
+                    content.append(rowContent.toString().trim()).append("\n");
+                }
+                content.append("\n");
+            }
+        } catch (Exception e) {
+            log.error("Failed to parse Excel: {}", e.getMessage());
+            throw new IOException("Excel parsing failed: " + e.getMessage(), e);
+        }
+        return content.toString();
+    }
+
+    private String parseCsv(File file) throws IOException {
+        return Files.readString(file.toPath());
+    }
+
+    private String getCellValueAsString(Cell cell) {
+        if (cell == null) {
+            return "";
+        }
+        return switch (cell.getCellType()) {
+            case STRING -> cell.getStringCellValue();
+            case NUMERIC -> {
+                if (DateUtil.isCellDateFormatted(cell)) {
+                    yield cell.getDateCellValue().toString();
+                } else {
+                    double numericValue = cell.getNumericCellValue();
+                    if (numericValue == (long) numericValue) {
+                        yield String.valueOf((long) numericValue);
+                    } else {
+                        yield String.valueOf(numericValue);
+                    }
+                }
+            }
+            case BOOLEAN -> String.valueOf(cell.getBooleanCellValue());
+            case FORMULA -> cell.getCellFormula();
+            default -> "";
+        };
+    }
+
     private Map<String, Object> extractStructuredContent(String content) {
         Map<String, Object> structuredContent = new HashMap<>();
 
-        // 按页分割内容
         String[] pages = content.split("=== Page \\d+ ===");
         List<Map<String, Object>> pageContents = new ArrayList<>();
 
@@ -404,7 +595,6 @@ public class DocumentServiceImpl implements DocumentService {
                 pageInfo.put("pageNumber", i + 1);
                 pageInfo.put("content", pageContent);
 
-                // 提取章节标题（简单的启发式方法）
                 List<String> sections = extractSections(pageContent);
                 pageInfo.put("sections", sections);
 
@@ -415,7 +605,6 @@ public class DocumentServiceImpl implements DocumentService {
         structuredContent.put("pages", pageContents);
         structuredContent.put("totalPages", pageContents.size());
 
-        // 提取关键词（简单的词频统计）
         Map<String, Integer> keywords = extractKeywords(content);
         structuredContent.put("keywords", keywords);
 
@@ -428,7 +617,6 @@ public class DocumentServiceImpl implements DocumentService {
 
         for (String line : lines) {
             line = line.trim();
-            // 简单的章节识别：以数字开头或包含特定关键词的行
             if (line.matches("^\\d+.*") ||
                 line.toLowerCase().contains("chapter") ||
                 line.toLowerCase().contains("section") ||
@@ -448,12 +636,11 @@ public class DocumentServiceImpl implements DocumentService {
                 .split("\\s+");
 
         for (String word : words) {
-            if (word.length() > 1) { // 忽略单字
+            if (word.length() > 1) {
                 wordCount.put(word, wordCount.getOrDefault(word, 0) + 1);
             }
         }
 
-        // 返回出现频率最高的10个词
         return wordCount.entrySet().stream()
                 .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
                 .limit(10)

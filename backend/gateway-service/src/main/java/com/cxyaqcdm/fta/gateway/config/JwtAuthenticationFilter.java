@@ -34,6 +34,8 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
                 Claims claims = validateToken(token);
                 exchange.getRequest().mutate()
                         .header("X-User-Id", claims.getSubject())
+                        .header("X-User-Role", claims.get("role", String.class))
+                        .header("X-User-Key", claims.get("userId", String.class))
                         .build();
             } catch (SignatureException e) {
                 exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);

@@ -17,9 +17,11 @@ public class DocumentMetadata {
     private Double credibilityWeight;
     private Boolean persistToKnowledgeBase;
     private Boolean isTemporary;
+    private Boolean isShared;
     private LocalDateTime expiresAt;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private String userId;
     
     public void setCreatedAt() {
         this.createdAt = LocalDateTime.now();

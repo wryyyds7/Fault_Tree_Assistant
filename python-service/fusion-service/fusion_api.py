@@ -13,10 +13,12 @@ from industrial_fta_common.fusion import (
     FusionEngine,
     DocumentMetadata,
     SourceType,
-    Conflict,
-    ConflictSeverity,
     DocumentClassifier,
     classify_document
+)
+from industrial_fta_common.fusion.conflict_detector import (
+    Conflict,
+    ConflictSeverity
 )
 from industrial_fta_common.fusion.document_metadata import ParagraphWithMetadata
 
@@ -24,7 +26,10 @@ load_dotenv()
 
 app = FastAPI(title="Fusion Service API", version="1.0.0")
 
-fusion_engine = FusionEngine(similarity_threshold=0.7, auto_resolve_low_severity=True)
+fusion_engine = FusionEngine(
+    similarity_threshold=float(os.getenv('SIMILARITY_THRESHOLD', '0.7')),
+    auto_resolve_low_severity=os.getenv('AUTO_RESOLVE_LOW_SEVERITY', 'true').lower() == 'true'
+)
 
 class ParagraphInput(BaseModel):
     paragraphId: str

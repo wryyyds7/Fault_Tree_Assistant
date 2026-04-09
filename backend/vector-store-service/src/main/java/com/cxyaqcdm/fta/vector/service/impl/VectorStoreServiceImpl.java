@@ -79,7 +79,7 @@ public class VectorStoreServiceImpl implements VectorStoreService {
     }
 
     @Override
-    public List<ParagraphMetadata> createParagraphMetadata(String docId, List<Map<String, Object>> paragraphs) {
+    public List<ParagraphMetadata> createParagraphMetadata(String docId, List<Map<String, Object>> paragraphs, String userId) {
         List<ParagraphMetadata> metadataList = new ArrayList<>();
 
         for (int i = 0; i < paragraphs.size(); i++) {
@@ -95,6 +95,7 @@ public class VectorStoreServiceImpl implements VectorStoreService {
             metadata.setKeywords((String) paragraph.get("keywords"));
             metadata.setConfidenceScore((Double) paragraph.getOrDefault("confidenceScore", 0.0));
             metadata.setSourceType((String) paragraph.getOrDefault("sourceType", "unknown"));
+            metadata.setUserId(userId);
             Object weightObj = paragraph.get("credibilityWeight");
             if (weightObj != null) {
                 metadata.setCredibilityWeight(((Number) weightObj).doubleValue());
@@ -107,7 +108,7 @@ public class VectorStoreServiceImpl implements VectorStoreService {
             metadataList.add(metadata);
         }
 
-        log.info("Created {} paragraph metadata entries for docId: {}", metadataList.size(), docId);
+        log.info("Created {} paragraph metadata entries for docId: {}, userId: {}", metadataList.size(), docId, userId);
         return metadataList;
     }
 
@@ -122,7 +123,7 @@ public class VectorStoreServiceImpl implements VectorStoreService {
     }
 
     @Override
-    public List<VectorStore> generateVectors(String docId, List<ParagraphMetadata> paragraphs) {
+    public List<VectorStore> generateVectors(String docId, List<ParagraphMetadata> paragraphs, String userId) {
         List<VectorStore> vectors = new ArrayList<>();
         
         try {
@@ -150,23 +151,24 @@ public class VectorStoreServiceImpl implements VectorStoreService {
                 vectorStore.setVectorId("vec_" + UUID.randomUUID().toString().replace("-", ""));
                 vectorStore.setParagraphId(paragraph.getParagraphId());
                 vectorStore.setDocId(docId);
-                
+                vectorStore.setUserId(userId);
+
                 double[] embedding = (i < embeddings.size()) ? embeddings.get(i) : generateLocalEmbedding(paragraph.getContent());
                 String vectorData = vectorToString(embedding);
-                
+
                 vectorStore.setVectorData(vectorData);
                 vectorStore.setVectorDimension(vectorDimension);
                 vectorStore.setSimilarityScore(0.0);
                 vectorStore.setCreatedAt();
-                
+
                 vectorStoreMapper.insert(vectorStore);
                 vectors.add(vectorStore);
             }
-            
-            log.info("Generated {} real vectors for docId: {}", vectors.size(), docId);
+
+            log.info("Generated {} real vectors for docId: {}, userId: {}", vectors.size(), docId, userId);
         } catch (Exception e) {
             log.error("Failed to generate real vectors, falling back to dummy vectors: {}", e.getMessage());
-            return generateDummyVectors(docId, paragraphs);
+            return generateDummyVectors(docId, paragraphs, userId);
         }
         
         return vectors;
@@ -237,26 +239,27 @@ public class VectorStoreServiceImpl implements VectorStoreService {
         return dotProduct / (Math.sqrt(norm1) * Math.sqrt(norm2));
     }
     
-    private List<VectorStore> generateDummyVectors(String docId, List<ParagraphMetadata> paragraphs) {
+    private List<VectorStore> generateDummyVectors(String docId, List<ParagraphMetadata> paragraphs, String userId) {
         List<VectorStore> vectors = new ArrayList<>();
-        
+
         for (ParagraphMetadata paragraph : paragraphs) {
             VectorStore vectorStore = new VectorStore();
             vectorStore.setVectorId("vec_" + UUID.randomUUID().toString().replace("-", ""));
             vectorStore.setParagraphId(paragraph.getParagraphId());
             vectorStore.setDocId(docId);
-            
+            vectorStore.setUserId(userId);
+
             String vectorData = generateDummyVector();
             vectorStore.setVectorData(vectorData);
             vectorStore.setVectorDimension(vectorDimension);
             vectorStore.setSimilarityScore(0.0);
             vectorStore.setCreatedAt();
-            
+
             vectorStoreMapper.insert(vectorStore);
             vectors.add(vectorStore);
         }
-        
-        log.info("Generated {} dummy vectors for docId: {}", vectors.size(), docId);
+
+        log.info("Generated {} dummy vectors for docId: {}, userId: {}", vectors.size(), docId, userId);
         return vectors;
     }
 
@@ -354,7 +357,7 @@ public class VectorStoreServiceImpl implements VectorStoreService {
 
     @Override
     public void processDocument(String docId, String fileName, String fileType, Integer pageCount, List<Map<String, Object>> paragraphs,
-            String sourceType, Double credibilityWeight, String equipmentType, Boolean persistToKnowledgeBase) {
+            String sourceType, Double credibilityWeight, String equipmentType, Boolean persistToKnowledgeBase, String userId) {
         DocumentMetadata docMetadata = new DocumentMetadata();
         docMetadata.setDocId(docId);
         docMetadata.setFileName(fileName);
@@ -371,14 +374,15 @@ public class VectorStoreServiceImpl implements VectorStoreService {
         docMetadata.setEquipmentType(equipmentType);
         docMetadata.setPersistToKnowledgeBase(persistToKnowledgeBase);
         docMetadata.setIsTemporary(!persistToKnowledgeBase);
+        docMetadata.setUserId(userId);
         docMetadata.setCreatedAt();
 
         documentMetadataMapper.insert(docMetadata);
-        log.info("Created document metadata for docId: {}, sourceType: {}", docId, sourceType);
+        log.info("Created document metadata for docId: {}, sourceType: {}, userId: {}", docId, sourceType, userId);
 
-        List<ParagraphMetadata> paragraphMetadataList = createParagraphMetadata(docId, paragraphs);
+        List<ParagraphMetadata> paragraphMetadataList = createParagraphMetadata(docId, paragraphs, userId);
 
-        generateVectors(docId, paragraphMetadataList);
+        generateVectors(docId, paragraphMetadataList, userId);
 
         try {
             Map<String, Object> causalPattern = new HashMap<>();
@@ -393,7 +397,7 @@ public class VectorStoreServiceImpl implements VectorStoreService {
             log.error("Failed to update knowledge graph: {}", e.getMessage());
         }
 
-        log.info("Processed document: {}, paragraphs: {}", docId, paragraphs.size());
+        log.info("Processed document: {}, paragraphs: {}, userId: {}", docId, paragraphs.size(), userId);
     }
 
     private String generateDummyVector() {
