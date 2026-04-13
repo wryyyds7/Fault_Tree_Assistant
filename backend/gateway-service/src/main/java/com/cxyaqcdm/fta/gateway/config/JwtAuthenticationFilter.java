@@ -11,11 +11,20 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 
+import java.util.List;
+
 @Component
 public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAuthenticationFilter.Config> {
 
     @Value("${jwt.secret}")
     private String jwtSecret;
+
+    private static final List<String> EXCLUDE_PATHS = List.of(
+            "/api/v1/auth/",
+            "/api/v1/documents/upload",
+            "/actuator/",
+            "/ws/"
+    );
 
     public JwtAuthenticationFilter() {
         super(Config.class);
@@ -24,6 +33,14 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
     @Override
     public GatewayFilter apply(Config config) {
         return (exchange, chain) -> {
+            String path = exchange.getRequest().getURI().getPath();
+
+            for (String excludePath : EXCLUDE_PATHS) {
+                if (path.startsWith(excludePath)) {
+                    return chain.filter(exchange);
+                }
+            }
+
             String token = extractToken(exchange);
             if (token == null) {
                 exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);

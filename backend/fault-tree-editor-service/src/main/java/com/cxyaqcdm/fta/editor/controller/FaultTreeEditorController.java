@@ -39,19 +39,35 @@ public class FaultTreeEditorController {
 
     @PostMapping
     public ResponseEntity<FaultTreeDTO> createFaultTree(@RequestBody FaultTreeDTO faultTreeDTO) {
+        log.info("🔍 [POST] /api/v1/fault-trees - 创建故障树");
+        log.info("📥 [Controller] 接收到的 FaultTreeDTO: {}", faultTreeDTO);
+        log.info("📥 [Controller] faultTreeDTO.name = {}", faultTreeDTO.getName());
+        log.info("📥 [Controller] faultTreeDTO.eventName = {}", faultTreeDTO.getEventName());
+        log.info("📥 [Controller] faultTreeDTO.eventId = {}", faultTreeDTO.getEventId());
+        log.info("📥 [Controller] faultTreeDTO.eventType = {}", faultTreeDTO.getEventType());
+        log.info("📥 [Controller] faultTreeDTO.equipmentType = {}", faultTreeDTO.getEquipmentType());
+        log.info("📥 [Controller] faultTreeDTO.description = {}", faultTreeDTO.getDescription());
+        if (faultTreeDTO.getChildren() != null) {
+            log.info("📥 [Controller] faultTreeDTO.children 数量 = {}", faultTreeDTO.getChildren().size());
+        }
         String userId = getCurrentUserId();
+        log.info("📥 [Controller] 当前用户ID: {}", userId);
         var entity = faultTreeEditorService.createFaultTree(faultTreeDTO, userId);
         var dto = faultTreeEditorService.convertToDTO(entity);
+        log.info("✅ [Controller] 故障树创建成功, 返回的 DTO: treeId={}, name={}", dto.getTreeId(), dto.getName());
         return ResponseEntity.ok(dto);
     }
 
     @GetMapping("/{treeId}")
     public ResponseEntity<FaultTreeDTO> getFaultTree(@PathVariable String treeId) {
+        log.info("🔍 [GET] /api/v1/fault-trees/{} - 获取故障树详情", treeId);
         var entity = faultTreeEditorService.getFaultTree(treeId);
         if (entity == null) {
+            log.warn("⚠️ 故障树未找到: {}", treeId);
             throw new RuntimeException("Fault tree not found");
         }
         var dto = faultTreeEditorService.convertToDTO(entity);
+        log.info("✅ 返回故障树DTO: treeId={}, name={}", dto.getTreeId(), dto.getName());
         return ResponseEntity.ok(dto);
     }
 
@@ -59,6 +75,7 @@ public class FaultTreeEditorController {
     public ResponseEntity<List<FaultTreeDTO>> getAllFaultTrees() {
         String role = getCurrentUserRole();
         String currentUserId = getCurrentUserId();
+        log.info("🔍 [GET] /api/v1/fault-trees - 获取故障树列表, role={}, userId={}", role, currentUserId);
         List<FaultTreeEntity> entities;
 
         if ("ADMIN".equals(role)) {
@@ -70,14 +87,20 @@ public class FaultTreeEditorController {
         var dtos = entities.stream()
                 .map(faultTreeEditorService::convertToDTO)
                 .collect(Collectors.toList());
+        log.info("✅ 返回故障树列表: 数量={}", dtos.size());
         return ResponseEntity.ok(dtos);
     }
 
     @PutMapping("/{treeId}")
     public ResponseEntity<FaultTreeDTO> updateFaultTree(@PathVariable String treeId, @RequestBody FaultTreeDTO faultTreeDTO) {
+        log.info("🔍 [PUT] /api/v1/fault-trees/{} - 更新故障树", treeId);
+        log.info("📥 [Controller] 接收到的 FaultTreeDTO: {}", faultTreeDTO);
+        log.info("📥 [Controller] faultTreeDTO.name = {}", faultTreeDTO.getName());
+        log.info("📥 [Controller] faultTreeDTO.eventName = {}", faultTreeDTO.getEventName());
         String userId = getCurrentUserId();
         var entity = faultTreeEditorService.updateFaultTree(treeId, faultTreeDTO, userId);
         var dto = faultTreeEditorService.convertToDTO(entity);
+        log.info("✅ [Controller] 故障树更新成功");
         return ResponseEntity.ok(dto);
     }
 

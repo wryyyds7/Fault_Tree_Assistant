@@ -24,21 +24,38 @@ public class FaultTreeEditorServiceImpl implements FaultTreeEditorService {
     @Override
     public FaultTreeEntity createFaultTree(FaultTreeDTO faultTreeDTO, String userId) {
         try {
-            // 生成唯一的treeId
+            log.info("🔍 [Service] createFaultTree 开始");
+            log.info("📥 [Service] 接收到的 faultTreeDTO: {}", faultTreeDTO);
+            log.info("📥 [Service] faultTreeDTO.name = {}", faultTreeDTO.getName());
+            log.info("📥 [Service] faultTreeDTO.eventName = {}", faultTreeDTO.getEventName());
+            log.info("📥 [Service] faultTreeDTO.eventId = {}", faultTreeDTO.getEventId());
+            log.info("📥 [Service] faultTreeDTO.eventType = {}", faultTreeDTO.getEventType());
+            log.info("📥 [Service] faultTreeDTO.equipmentType = {}", faultTreeDTO.getEquipmentType());
+            log.info("📥 [Service] faultTreeDTO.description = {}", faultTreeDTO.getDescription());
+            log.info("📥 [Service] faultTreeDTO.treeData = {}", faultTreeDTO.getTreeData());
+            if (faultTreeDTO.getChildren() != null) {
+                log.info("📥 [Service] faultTreeDTO.children 数量 = {}", faultTreeDTO.getChildren().size());
+            }
+            log.info("📥 [Service] userId = {}", userId);
+
             String treeId = "tree_" + UUID.randomUUID().toString().replace("-", "");
-            
-            // 转换为实体
+            log.info("📥 [Service] 生成的 treeId = {}", treeId);
+
             FaultTreeEntity entity = convertToEntity(faultTreeDTO);
+            log.info("📥 [Service] convertToEntity 后的 entity.name = {}", entity.getName());
+            log.info("📥 [Service] entity.treeData = {}", entity.getTreeData());
+
             entity.setTreeId(treeId);
             entity.setCreatedBy(userId);
             entity.setUpdatedBy(userId);
             entity.setCreatedAt();
-            
-            // 保存到数据库
+
+            log.info("📥 [Service] 准备插入数据库, entity: {}", entity);
             faultTreeMapper.insert(entity);
+            log.info("✅ [Service] 插入数据库成功, treeId = {}", treeId);
             return entity;
         } catch (Exception e) {
-            log.error("Error creating fault tree: {}", e.getMessage());
+            log.error("❌ [Service] Error creating fault tree: {}", e.getMessage(), e);
             throw new RuntimeException("Failed to create fault tree", e);
         }
     }
@@ -61,25 +78,33 @@ public class FaultTreeEditorServiceImpl implements FaultTreeEditorService {
     @Override
     public FaultTreeEntity updateFaultTree(String treeId, FaultTreeDTO faultTreeDTO, String userId) {
         try {
-            // 查找现有故障树
+            log.info("🔍 updateFaultTree 开始, treeId={}, dto.name={}, dto.treeData={}", treeId, faultTreeDTO.getName(), faultTreeDTO.getTreeData());
+
             FaultTreeEntity entity = faultTreeMapper.findByTreeId(treeId);
             if (entity == null) {
                 throw new RuntimeException("Fault tree not found");
             }
-            
-            // 更新字段
-            entity.setName(faultTreeDTO.getEventName());
+
+            entity.setName(faultTreeDTO.getName());
             entity.setDescription(faultTreeDTO.getDescription());
             entity.setEquipmentType(faultTreeDTO.getEquipmentType());
-            entity.setTreeData(objectMapper.writeValueAsString(faultTreeDTO));
+
+            if (faultTreeDTO.getTreeData() != null) {
+                log.info("✅ 使用 dto.treeData 更新故障树结构");
+                entity.setTreeData(objectMapper.writeValueAsString(faultTreeDTO.getTreeData()));
+            } else {
+                log.info("✅ 使用整个 dto 更新故障树结构");
+                entity.setTreeData(objectMapper.writeValueAsString(faultTreeDTO));
+            }
+
             entity.setUpdatedBy(userId);
             entity.setUpdatedAt();
-            
-            // 保存更新
+
             faultTreeMapper.update(entity);
+            log.info("✅ updateFaultTree 完成");
             return entity;
         } catch (Exception e) {
-            log.error("Error updating fault tree: {}", e.getMessage());
+            log.error("❌ Error updating fault tree: {}", e.getMessage(), e);
             throw new RuntimeException("Failed to update fault tree", e);
         }
     }
@@ -101,9 +126,29 @@ public class FaultTreeEditorServiceImpl implements FaultTreeEditorService {
     @Override
     public FaultTreeDTO convertToDTO(FaultTreeEntity entity) {
         try {
-            return objectMapper.readValue(entity.getTreeData(), FaultTreeDTO.class);
+            log.info("🔍 convertToDTO 开始转换, entity.id={}, entity.treeId={}, entity.name={}", entity.getId(), entity.getTreeId(), entity.getName());
+            log.info("🔍 treeData 内容: {}", entity.getTreeData());
+
+            if (entity.getTreeData() == null || entity.getTreeData().isEmpty()) {
+                log.warn("⚠️ treeData 为空，返回基础DTO");
+                FaultTreeDTO dto = new FaultTreeDTO();
+                dto.setEventId(entity.getTreeId());
+                dto.setEventName(entity.getName());
+                return dto;
+            }
+
+            FaultTreeDTO dto = objectMapper.readValue(entity.getTreeData(), FaultTreeDTO.class);
+
+            log.info("🔍 解析后的 DTO: eventId={}, eventName={}", dto.getEventId(), dto.getEventName());
+
+            // 设置元数据（这些是实体级别的属性）
+            dto.setTreeId(entity.getTreeId());
+            dto.setName(entity.getName());
+
+            log.info("✅ 转换完成: treeId={}, name={}", dto.getTreeId(), dto.getName());
+            return dto;
         } catch (Exception e) {
-            log.error("Error converting entity to DTO: {}", e.getMessage());
+            log.error("❌ Error converting entity to DTO: {}", e.getMessage(), e);
             throw new RuntimeException("Failed to convert entity to DTO", e);
         }
     }
@@ -111,14 +156,35 @@ public class FaultTreeEditorServiceImpl implements FaultTreeEditorService {
     @Override
     public FaultTreeEntity convertToEntity(FaultTreeDTO dto) {
         try {
+            log.info("🔍 convertToEntity 开始, dto.name={}, dto.treeData={}", dto.getName(), dto.getTreeData());
+
             FaultTreeEntity entity = new FaultTreeEntity();
-            entity.setName(dto.getEventName());
+
+            String treeName = dto.getName();
+            if (treeName == null || treeName.trim().isEmpty()) {
+                treeName = dto.getEventName();
+            }
+            if (treeName == null || treeName.trim().isEmpty()) {
+                treeName = "未命名故障树_" + System.currentTimeMillis();
+            }
+            entity.setName(treeName);
             entity.setDescription(dto.getDescription());
             entity.setEquipmentType(dto.getEquipmentType());
-            entity.setTreeData(objectMapper.writeValueAsString(dto));
+
+            // 如果 dto.treeData 不为 null，使用它作为故障树结构
+            // 否则，将整个 dto 作为故障树结构
+            if (dto.getTreeData() != null) {
+                log.info("✅ 使用 dto.treeData 作为故障树结构");
+                entity.setTreeData(objectMapper.writeValueAsString(dto.getTreeData()));
+            } else {
+                log.info("✅ 使用整个 dto 作为故障树结构");
+                entity.setTreeData(objectMapper.writeValueAsString(dto));
+            }
+
+            log.info("✅ convertToEntity 完成, entity.name={}", entity.getName());
             return entity;
         } catch (Exception e) {
-            log.error("Error converting DTO to entity: {}", e.getMessage());
+            log.error("❌ Error converting DTO to entity: {}", e.getMessage(), e);
             throw new RuntimeException("Failed to convert DTO to entity", e);
         }
     }

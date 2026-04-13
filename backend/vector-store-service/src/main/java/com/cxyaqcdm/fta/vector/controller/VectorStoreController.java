@@ -26,8 +26,14 @@ public class VectorStoreController {
         String fileName = (String) request.get("fileName");
         String fileType = (String) request.get("fileType");
         Integer pageCount = (Integer) request.get("pageCount");
-        
-        DocumentMetadata metadata = vectorStoreService.createDocumentMetadata(docId, fileName, fileType, pageCount);
+        String sourceType = (String) request.getOrDefault("sourceType", "unknown");
+        String equipmentType = (String) request.get("equipmentType");
+        String userId = (String) request.get("userId");
+        Boolean persistToKnowledgeBase = (Boolean) request.getOrDefault("persistToKnowledgeBase", true);
+        String status = (String) request.getOrDefault("status", "PENDING");
+
+        DocumentMetadata metadata = vectorStoreService.createDocumentMetadata(
+            docId, fileName, fileType, pageCount, sourceType, equipmentType, userId, persistToKnowledgeBase, status);
         return ResponseEntity.ok(metadata);
     }
 
@@ -149,5 +155,29 @@ public class VectorStoreController {
     public ResponseEntity<List<String>> getAvailableCategories() {
         List<String> categories = vectorStoreService.getAvailableCategories();
         return ResponseEntity.ok(categories);
+    }
+
+    @GetMapping("/documents")
+    public ResponseEntity<List<Map<String, Object>>> getAllDocumentMetadata(@RequestParam(required = false) String userId) {
+        List<DocumentMetadata> documents = documentMetadataMapper.findAll();
+        List<Map<String, Object>> result = documents.stream()
+            .filter(doc -> userId == null || userId.isEmpty() || userId.equals(doc.getUserId()))
+            .map(doc -> {
+                Map<String, Object> map = new java.util.HashMap<>();
+                map.put("docId", doc.getDocId());
+                map.put("fileName", doc.getFileName());
+                map.put("fileType", doc.getFileType());
+                map.put("pageCount", doc.getPageCount());
+                map.put("uploadTime", doc.getUploadTime() != null ? doc.getUploadTime().toString() : null);
+                map.put("equipmentType", doc.getEquipmentType());
+                map.put("status", doc.getStatus());
+                map.put("sourceType", doc.getSourceType());
+                map.put("credibilityWeight", doc.getCredibilityWeight());
+                map.put("persistToKnowledgeBase", doc.getPersistToKnowledgeBase());
+                map.put("userId", doc.getUserId());
+                return map;
+            })
+            .collect(java.util.stream.Collectors.toList());
+        return ResponseEntity.ok(result);
     }
 }

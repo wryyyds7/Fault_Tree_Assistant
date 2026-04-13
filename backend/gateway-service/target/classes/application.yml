@@ -14,6 +14,24 @@ spring:
         namespace: fta-namespace
         group: DEFAULT_GROUP
     gateway:
+      default-filters:
+        - JwtAuthenticationFilter
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOrigins:
+              - "http://localhost:3000"
+              - "http://127.0.0.1:3000"
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - OPTIONS
+            allowedHeaders:
+              - "*"
+            allowCredentials: true
+            maxAge: 3600
       routes:
         # 认证服务路由
         - id: auth-service
@@ -22,7 +40,7 @@ spring:
             - Path=/api/v1/auth/**
           filters:
             - StripPrefix=0
-        
+
         # 文档摄入服务路由
         - id: document-ingest-service
           uri: lb://document-ingest-service
@@ -30,7 +48,7 @@ spring:
             - Path=/api/v1/documents/**
           filters:
             - StripPrefix=0
-        
+
         # 知识图谱服务路由
         - id: knowledge-graph-service
           uri: lb://knowledge-graph-service
@@ -38,7 +56,7 @@ spring:
             - Path=/api/v1/kg/**
           filters:
             - StripPrefix=0
-        
+
         # 规则验证服务路由
         - id: rule-validation-service
           uri: lb://rule-validation-service
@@ -46,7 +64,7 @@ spring:
             - Path=/api/v1/validation/**
           filters:
             - StripPrefix=0
-        
+
         # 故障树编辑器服务路由
         - id: fault-tree-editor-service
           uri: lb://fault-tree-editor-service
@@ -54,7 +72,7 @@ spring:
             - Path=/api/v1/fault-trees/**
           filters:
             - StripPrefix=0
-        
+
         # 反馈学习服务路由
         - id: feedback-learning-service
           uri: lb://feedback-learning-service
@@ -72,7 +90,6 @@ spring:
             - StripPrefix=0
 
         # RAG生成服务路由 (Python FastAPI)
-        # 注意：Python服务需要在本地8000端口启动，或修改为实际的服务地址
         - id: rag-generation-service
           uri: http://localhost:8000
           predicates:
@@ -90,11 +107,9 @@ spring:
 server:
   port: 8089
 
-# 网关配置
 gateway:
   timeout: 30000
   retries: 3
 
-# JWT配置 (与auth-service保持一致)
 jwt:
   secret: yoursecretkeyyoursecretkeyyoursecretkeyyoursecretkeyyoursecretkeyyoursecretkeyyoursecretkeyyoursecretkey

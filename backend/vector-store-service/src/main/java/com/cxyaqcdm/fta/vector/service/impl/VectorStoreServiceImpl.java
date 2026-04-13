@@ -52,9 +52,31 @@ public class VectorStoreServiceImpl implements VectorStoreService {
         metadata.setUploadTime(LocalDateTime.now());
         metadata.setStatus("processed");
         metadata.setCreatedAt();
-        
+
         documentMetadataMapper.insert(metadata);
         log.info("Created document metadata for docId: {}", docId);
+        return metadata;
+    }
+
+    @Override
+    public DocumentMetadata createDocumentMetadata(String docId, String fileName, String fileType, Integer pageCount,
+            String sourceType, String equipmentType, String userId, Boolean persistToKnowledgeBase, String status) {
+        DocumentMetadata metadata = new DocumentMetadata();
+        metadata.setDocId(docId);
+        metadata.setFileName(fileName);
+        metadata.setFileType(fileType);
+        metadata.setPageCount(pageCount);
+        metadata.setUploadTime(LocalDateTime.now());
+        metadata.setStatus(status != null ? status : "PENDING");
+        metadata.setSourceType(sourceType);
+        metadata.setEquipmentType(equipmentType);
+        metadata.setUserId(userId);
+        metadata.setPersistToKnowledgeBase(persistToKnowledgeBase);
+        metadata.setIsTemporary(!persistToKnowledgeBase);
+        metadata.setCreatedAt();
+
+        documentMetadataMapper.insert(metadata);
+        log.info("Created document metadata for docId: {}, sourceType: {}, userId: {}", docId, sourceType, userId);
         return metadata;
     }
 

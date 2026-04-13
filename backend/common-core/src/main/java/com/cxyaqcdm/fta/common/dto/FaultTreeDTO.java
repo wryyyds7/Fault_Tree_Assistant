@@ -7,6 +7,8 @@ import java.util.List;
 
 @Data
 public class FaultTreeDTO {
+    private String treeId;
+    private String name;
     private String eventId;
     private String eventName;
     private String description;
@@ -15,6 +17,7 @@ public class FaultTreeDTO {
     private List<FaultTreeDTO> children;
     private String sourceEvidence;
     private String equipmentType;
+    private FaultTreeDTO treeData;
 
     private Double confidence;
     private String verificationStatus;

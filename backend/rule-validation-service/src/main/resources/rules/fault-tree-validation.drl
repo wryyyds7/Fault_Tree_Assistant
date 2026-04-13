@@ -1,0 +1,145 @@
+package com.cxyaqcdm.fta.validation.rules;
+
+dialect "java"
+
+import com.cxyaqcdm.fta.common.dto.FaultTreeDTO
+import com.cxyaqcdm.fta.common.enums.EventTypeEnum
+import com.cxyaqcdm.fta.common.enums.LogicGateEnum
+import com.cxyaqcdm.fta.validation.dto.ValidationResultDTO
+import java.util.List
+import java.util.ArrayList
+import java.util.HashSet
+import java.util.Set
+
+global List<ValidationResultDTO.ValidationErrorDTO> errors
+
+function boolean hasCycle(FaultTreeDTO node, Set visited) {
+    if (visited.contains(node.getEventId())) {
+        return true;
+    }
+    visited.add(node.getEventId());
+    if (node.getChildren() != null) {
+        for (Object child : node.getChildren()) {
+            Set newVisited = new HashSet(visited);
+            if (hasCycle((FaultTreeDTO)child, newVisited)) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+rule "Check Cyclic Dependency"
+    when
+        $tree : FaultTreeDTO()
+    then
+        Set<String> visited = new HashSet<String>();
+        if (hasCycle($tree, visited)) {
+            AddError.addError("CYCLE_DETECTED", $tree.getEventId(), 
+                "Detected cyclic dependency in fault tree", 
+                "CIRCULAR_DEPENDENCY", 
+                "Remove the circular reference by restructuring the fault tree hierarchy.", errors);
+        }
+end
+
+rule "Check Single Top Event"
+    when
+        $tree : FaultTreeDTO(eventType != EventTypeEnum.TOP)
+    then
+        AddError.addError("MULTIPLE_TOP_EVENTS", $tree.getEventId(), 
+            "Root node must be a TOP event", 
+            "INVALID_TOP_EVENT", 
+            "Set the root node event type to TOP.", errors);
+end
+
+rule "Check Basic Event Has Children"
+    when
+        $node : FaultTreeDTO(eventType == EventTypeEnum.BASIC, 
+                          children != null, 
+                          children.size() > 0)
+    then
+        AddError.addError("BASIC_EVENT_HAS_CHILDREN", $node.getEventId(), 
+            "Basic event '" + $node.getEventName() + "' cannot have children", 
+            "INVALID_BASIC_NODE", 
+            "Remove child nodes from basic event or change its type to INTERMEDIATE.", errors);
+end
+
+rule "Check AND/OR Gate Input Count"
+    when
+        $node : FaultTreeDTO(gateType == LogicGateEnum.AND || gateType == LogicGateEnum.OR,
+                          (children == null || children.size() < 2))
+    then
+        AddError.addError("INSUFFICIENT_INPUTS", $node.getEventId(), 
+            $node.getGateType() + " gate '" + $node.getEventName() + "' must have at least two inputs. Current: " + 
+            ($node.getChildren() == null ? 0 : $node.getChildren().size()), 
+            "INSUFFICIENT_INPUTS", 
+            "Add more child nodes to " + $node.getGateType() + " gate.", errors);
+end
+
+rule "Check XOR Gate Input Count"
+    when
+        $node : FaultTreeDTO(gateType == LogicGateEnum.XOR,
+                          (children == null || children.size() < 2))
+    then
+        AddError.addError("INSUFFICIENT_XOR_INPUTS", $node.getEventId(), 
+            "XOR gate '" + $node.getEventName() + "' must have at least two inputs. Current: " + 
+            ($node.getChildren() == null ? 0 : $node.getChildren().size()), 
+            "INSUFFICIENT_INPUTS", 
+            "Add more child nodes to XOR gate (mutually exclusive inputs).", errors);
+end
+
+rule "Check NOT Gate Input Count"
+    when
+        $node : FaultTreeDTO(gateType == LogicGateEnum.NOT,
+                          (children == null || children.size() != 1))
+    then
+        AddError.addError("INVALID_NOT_GATE_INPUTS", $node.getEventId(), 
+            "NOT gate '" + $node.getEventName() + "' must have exactly one input. Current: " + 
+            ($node.getChildren() == null ? 0 : $node.getChildren().size()), 
+            "INVALID_GATE_INPUTS", 
+            "NOT gate should have exactly one child node.", errors);
+end
+
+rule "Check Event Type Not Null"
+    when
+        $node : FaultTreeDTO(eventType == null)
+    then
+        AddError.addError("MISSING_EVENT_TYPE", $node.getEventId(), 
+            "Event type cannot be null for event: " + $node.getEventId(), 
+            "MISSING_EVENT_TYPE", 
+            "Assign an event type (TOP, INTERMEDIATE, or BASIC) to event.", errors);
+end
+
+rule "Check Intermediate Event Has Gate"
+    when
+        $node : FaultTreeDTO(eventType == EventTypeEnum.INTERMEDIATE,
+                          gateType == null,
+                          children != null,
+                          children.size() > 0)
+    then
+        AddError.addError("MISSING_GATE_TYPE", $node.getEventId(), 
+            "Intermediate event '" + $node.getEventName() + "' with children must have a gate type", 
+            "MISSING_GATE", 
+            "Add a gate type (AND, OR, XOR, NOT) to intermediate event.", errors);
+end
+
+rule "Check Event Name Not Empty"
+    when
+        $node : FaultTreeDTO(eventName == null || eventName.trim().length() == 0)
+    then
+        AddError.addError("EMPTY_EVENT_NAME", $node.getEventId(), 
+            "Event name cannot be empty", 
+            "EMPTY_NAME", 
+            "Provide a meaningful name for the event.", errors);
+end
+
+rule "Check Duplicate Event IDs"
+    when
+        $node1 : FaultTreeDTO($id1 : eventId)
+        $node2 : FaultTreeDTO(eventId == $id1, this != $node1)
+    then
+        AddError.addError("DUPLICATE_EVENT_ID", $id1, 
+            "Duplicate event ID found: " + $id1, 
+            "DUPLICATE_ID", 
+            "Ensure each event has a unique eventId.", errors);
+end

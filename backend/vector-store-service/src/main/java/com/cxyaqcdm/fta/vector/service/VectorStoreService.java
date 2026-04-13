@@ -9,6 +9,8 @@ import java.util.Map;
 
 public interface VectorStoreService {
     DocumentMetadata createDocumentMetadata(String docId, String fileName, String fileType, Integer pageCount);
+    DocumentMetadata createDocumentMetadata(String docId, String fileName, String fileType, Integer pageCount,
+            String sourceType, String equipmentType, String userId, Boolean persistToKnowledgeBase, String status);
     DocumentMetadata getDocumentMetadata(String docId);
     void updateDocumentMetadata(DocumentMetadata documentMetadata);
     void deleteDocumentMetadata(String docId);
