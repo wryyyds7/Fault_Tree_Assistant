@@ -1,0 +1,38 @@
+# Stage 1: Build
+FROM maven:3.9-eclipse-temurin-17-alpine AS builder
+
+WORKDIR /app
+
+COPY pom.xml ./
+COPY common-core/pom.xml ./common-core/
+COPY auth-service/pom.xml ./auth-service/
+
+RUN mvn dependency:go-offline -B -pl auth-service -am
+
+COPY common-core/src ./common-core/src
+COPY auth-service/src ./auth-service/src
+
+RUN mvn package -DskipTests -B -pl auth-service -am
+
+# Stage 2: Runtime
+FROM eclipse-temurin:17-jre-alpine
+
+RUN apk add --no-cache curl && \
+    addgroup -S appgroup && adduser -S appuser -G appgroup
+
+WORKDIR /app
+
+COPY --from=builder /app/common-core/target/*.jar /app/lib/
+COPY --from=builder /app/auth-service/target/auth-service-*.jar /app/auth-service.jar
+
+RUN chown -R appuser:appgroup /app && \
+    chmod -R 755 /app
+
+USER appuser
+
+EXPOSE 8088
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=5 \
+    CMD curl -f http://localhost:8088/actuator/health || exit 1
+
+CMD ["java", "-XX:+UseContainerSupport", "-XX:MaxRAMPercentage=75.0", "-jar", "auth-service.jar"]

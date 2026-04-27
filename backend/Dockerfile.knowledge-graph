@@ -1,11 +1,38 @@
-FROM openjdk:17-jdk-alpine
+# Stage 1: Build
+FROM maven:3.9-eclipse-temurin-17-alpine AS builder
 
 WORKDIR /app
 
-COPY . /app
+COPY pom.xml ./
+COPY common-core/pom.xml ./common-core/
+COPY knowledge-graph-service/pom.xml ./knowledge-graph-service/
 
-RUN ./mvnw clean package -DskipTests -pl knowledge-graph-service -am
+RUN mvn dependency:go-offline -B -pl knowledge-graph-service -am
+
+COPY common-core/src ./common-core/src
+COPY knowledge-graph-service/src ./knowledge-graph-service/src
+
+RUN mvn package -DskipTests -B -pl knowledge-graph-service -am
+
+# Stage 2: Runtime
+FROM eclipse-temurin:17-jre-alpine
+
+RUN apk add --no-cache curl && \
+    addgroup -S appgroup && adduser -S appuser -G appgroup
+
+WORKDIR /app
+
+COPY --from=builder /app/common-core/target/*.jar /app/lib/
+COPY --from=builder /app/knowledge-graph-service/target/knowledge-graph-service-*.jar /app/knowledge-graph-service.jar
+
+RUN chown -R appuser:appgroup /app && \
+    chmod -R 755 /app
+
+USER appuser
 
 EXPOSE 8082
 
-CMD ["java", "-jar", "knowledge-graph-service/target/knowledge-graph-service-1.0.0.jar"]
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=5 \
+    CMD curl -f http://localhost:8082/actuator/health || exit 1
+
+CMD ["java", "-XX:+UseContainerSupport", "-XX:MaxRAMPercentage=75.0", "-jar", "knowledge-graph-service.jar"]

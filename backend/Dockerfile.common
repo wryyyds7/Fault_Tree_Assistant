@@ -1,11 +1,63 @@
-FROM openjdk:17-jdk-alpine
+# Stage 1: Build
+FROM maven:3.9-eclipse-temurin-17-alpine AS builder
 
 WORKDIR /app
 
-COPY . /app
+COPY pom.xml ./
+COPY common-core/pom.xml ./common-core/
+COPY auth-service/pom.xml ./auth-service/
+COPY document-ingest-service/pom.xml ./document-ingest-service/
+COPY fault-tree-editor-service/pom.xml ./fault-tree-editor-service/
+COPY feedback-learning-service/pom.xml ./feedback-learning-service/
+COPY gateway-service/pom.xml ./gateway-service/
+COPY knowledge-graph-service/pom.xml ./knowledge-graph-service/
+COPY log-service/pom.xml ./log-service/
+COPY rule-validation-service/pom.xml ./rule-validation-service/
+COPY vector-store-service/pom.xml ./vector-store-service/
 
-RUN ./mvnw clean package -DskipTests
+RUN mvn dependency:go-offline -B
 
-EXPOSE 8080
+COPY common-core/src ./common-core/src
+COPY auth-service/src ./auth-service/src
+COPY document-ingest-service/src ./document-ingest-service/src
+COPY fault-tree-editor-service/src ./fault-tree-editor-service/src
+COPY feedback-learning-service/src ./feedback-learning-service/src
+COPY gateway-service/src ./gateway-service/src
+COPY knowledge-graph-service/src ./knowledge-graph-service/src
+COPY log-service/src ./log-service/src
+COPY rule-validation-service/src ./rule-validation-service/src
+COPY vector-store-service/src ./vector-store-service/src
 
-CMD ["java", "-jar", "target/*.jar"]
+# Build all services
+RUN mvn package -DskipTests -B
+
+# Stage 2: Runtime
+FROM eclipse-temurin:17-jre-alpine
+
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+
+WORKDIR /app
+
+RUN apk add --no-cache curl
+
+COPY --from=builder /app/common-core/target/*.jar /app/lib/
+COPY --from=builder /app/auth-service/target/auth-service-*.jar /app/auth-service.jar
+COPY --from=builder /app/document-ingest-service/target/document-ingest-service-*.jar /app/document-ingest-service.jar
+COPY --from=builder /app/fault-tree-editor-service/target/fault-tree-editor-service-*.jar /app/fault-tree-editor-service.jar
+COPY --from=builder /app/feedback-learning-service/target/feedback-learning-service-*.jar /app/feedback-learning-service.jar
+COPY --from=builder /app/gateway-service/target/gateway-service-*.jar /app/gateway-service.jar
+COPY --from=builder /app/knowledge-graph-service/target/knowledge-graph-service-*.jar /app/knowledge-graph-service.jar
+COPY --from=builder /app/log-service/target/log-service-*.jar /app/log-service.jar
+COPY --from=builder /app/rule-validation-service/target/rule-validation-service-*.jar /app/rule-validation-service.jar
+COPY --from=builder /app/vector-store-service/target/vector-store-service-*.jar /app/vector-store-service.jar
+
+RUN chown -R appuser:appgroup /app
+
+USER appuser
+
+EXPOSE 8080 8081 8082 8083 8084 8085 8086 8087 8088
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=5 \
+    CMD curl -f http://localhost:8080/actuator/health || exit 1
+
+ENTRYPOINT ["java", "-XX:+UseContainerSupport", "-XX:MaxRAMPercentage=75.0", "-jar"]

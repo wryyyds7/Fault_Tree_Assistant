@@ -69,11 +69,11 @@
 
     <update id="update">
         UPDATE fault_trees
-        SET name = #{name}, description = #{description,jdbcType=VARCHAR}, equipment_type = #{equipmentType,jdbcType=VARCHAR},
+        SET name = #{name,jdbcType=VARCHAR}, description = #{description,jdbcType=VARCHAR}, equipment_type = #{equipmentType,jdbcType=VARCHAR},
             top_event = #{topEvent,jdbcType=VARCHAR}, tree_data = #{treeData,jdbcType=CLOB}, version = #{version,jdbcType=INTEGER},
-            validation_status = #{validationStatus}, validation_message = #{validationMessage,jdbcType=VARCHAR},
+            validation_status = #{validationStatus,jdbcType=VARCHAR}, validation_message = #{validationMessage,jdbcType=VARCHAR},
             source_doc_ids = #{sourceDocIds,jdbcType=VARCHAR}, source_detail = #{sourceDetail,jdbcType=VARCHAR},
-            publish_status = #{publishStatus}, fusion_statistics = #{fusionStatistics,jdbcType=VARCHAR},
+            publish_status = #{publishStatus,jdbcType=VARCHAR}, fusion_statistics = #{fusionStatistics,jdbcType=VARCHAR},
             generated_by = #{generatedBy,jdbcType=VARCHAR}, template_id = #{templateId,jdbcType=VARCHAR},
             updated_by = #{updatedBy,jdbcType=VARCHAR}, updated_at = #{updatedAt,jdbcType=TIMESTAMP}
         WHERE tree_id = #{treeId}

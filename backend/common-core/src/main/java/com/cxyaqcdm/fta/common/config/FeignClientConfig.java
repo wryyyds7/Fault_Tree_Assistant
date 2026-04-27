@@ -1,6 +1,7 @@
 package com.cxyaqcdm.fta.common.config;
 
 import feign.Logger;
+import feign.RequestInterceptor;
 import feign.codec.Decoder;
 import feign.codec.Encoder;
 import feign.jackson.JacksonDecoder;
@@ -29,5 +30,13 @@ public class FeignClientConfig {
     @Bean
     public Logger.Level feignLoggerLevel() {
         return Logger.Level.FULL;
+    }
+
+    @Bean
+    public RequestInterceptor requestInterceptor() {
+        return requestTemplate -> {
+            requestTemplate.header("Content-Type", "application/json");
+            requestTemplate.header("Accept", "application/json");
+        };
     }
 }

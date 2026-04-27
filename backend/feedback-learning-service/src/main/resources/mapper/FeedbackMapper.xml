@@ -52,8 +52,8 @@
         SELECT * FROM feedback
     </select>
 
-    <select id="findTopNByOrderByCreatedAtDesc" resultMap="FeedbackResultMap" limit="#{limit}">
-        SELECT * FROM feedback ORDER BY created_at DESC
+    <select id="findTopNByOrderByCreatedAtDesc" resultMap="FeedbackResultMap">
+        SELECT * FROM feedback ORDER BY created_at DESC LIMIT #{limit}
     </select>
 
     <insert id="insert">

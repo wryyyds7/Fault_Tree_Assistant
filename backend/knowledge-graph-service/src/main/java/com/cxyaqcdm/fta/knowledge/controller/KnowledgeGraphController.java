@@ -22,15 +22,39 @@ public class KnowledgeGraphController {
         return ResponseEntity.ok(template);
     }
 
+    @GetMapping("/data")
+    public ResponseEntity<Map<String, Object>> getKnowledgeGraphData(
+            @RequestParam(required = false) String userId) {
+        if (userId == null || userId.isEmpty()) {
+            userId = "anonymous";
+        }
+        Map<String, Object> data = knowledgeGraphService.getKnowledgeGraphData(userId);
+        return ResponseEntity.ok(data);
+    }
+
     @PutMapping("/enrich")
     public ResponseEntity<Void> enrichKnowledge(@RequestBody Map<String, Object> causalPattern) {
         knowledgeGraphService.enrichKnowledge(causalPattern);
         return ResponseEntity.ok().build();
     }
 
+    @DeleteMapping("/user-document")
+    public ResponseEntity<Void> deleteUserDocumentKnowledge(
+            @RequestParam String userId,
+            @RequestParam String docId) {
+        knowledgeGraphService.deleteUserDocumentKnowledge(userId, docId);
+        return ResponseEntity.ok().build();
+    }
+
     @PostMapping("/initialize")
     public ResponseEntity<Void> initializeOntology() {
         knowledgeGraphService.initializeOntology();
+        return ResponseEntity.ok().build();
+    }
+
+    @PutMapping("/save-event")
+    public ResponseEntity<Void> saveEvent(@RequestBody Map<String, Object> eventData) {
+        knowledgeGraphService.saveEvent(eventData);
         return ResponseEntity.ok().build();
     }
 }

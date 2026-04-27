@@ -62,6 +62,7 @@
     </dependencies>
 
     <modules>
+        <module>common-core</module>
         <module>gateway-service</module>
         <module>auth-service</module>
         <module>document-ingest-service</module>
@@ -70,7 +71,6 @@
         <module>fault-tree-editor-service</module>
         <module>feedback-learning-service</module>
         <module>vector-store-service</module>
-        <module>common-core</module>
         <module>log-service</module>
     </modules>
 

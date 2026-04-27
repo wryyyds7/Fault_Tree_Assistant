@@ -21,7 +21,7 @@ public interface VectorStoreService {
 
     List<VectorStore> generateVectors(String docId, List<ParagraphMetadata> paragraphs, String userId);
     List<VectorStore> getVectorsByDocId(String docId);
-    List<Map<String, Object>> searchSimilarVectors(String query, int topK);
+    List<Map<String, Object>> searchSimilarVectors(String query, int topK, String userId, List<String> docIds);
 
     void processDocument(String docId, String fileName, String fileType, Integer pageCount, List<Map<String, Object>> paragraphs,
             String sourceType, Double credibilityWeight, String equipmentType, Boolean persistToKnowledgeBase, String userId);

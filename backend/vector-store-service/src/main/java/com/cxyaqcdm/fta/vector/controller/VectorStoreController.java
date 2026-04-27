@@ -2,9 +2,11 @@ package com.cxyaqcdm.fta.vector.controller;
 
 import com.cxyaqcdm.fta.vector.entity.DocumentMetadata;
 import com.cxyaqcdm.fta.vector.entity.ParagraphMetadata;
+import com.cxyaqcdm.fta.vector.mapper.DocumentMetadataMapper;
 import com.cxyaqcdm.fta.vector.service.VectorStoreService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -19,8 +21,9 @@ public class VectorStoreController {
 
     private final VectorStoreService vectorStoreService;
 
-    // 文档元数据相关接口
-    @PostMapping("/documents")
+    private final DocumentMetadataMapper documentMetadataMapper;
+
+    @PostMapping(value = "/documents", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<DocumentMetadata> createDocumentMetadata(@RequestBody Map<String, Object> request) {
         String docId = (String) request.get("docId");
         String fileName = (String) request.get("fileName");
@@ -101,8 +104,10 @@ public class VectorStoreController {
     public ResponseEntity<List<Map<String, Object>>> searchSimilarVectors(@RequestBody Map<String, Object> request) {
         String query = (String) request.get("query");
         int topK = (int) request.getOrDefault("topK", 5);
-        
-        List<Map<String, Object>> results = vectorStoreService.searchSimilarVectors(query, topK);
+        String userId = (String) request.get("userId");
+        List<String> docIds = (List<String>) request.get("docIds");
+
+        List<Map<String, Object>> results = vectorStoreService.searchSimilarVectors(query, topK, userId, docIds);
         return ResponseEntity.ok(results);
     }
 

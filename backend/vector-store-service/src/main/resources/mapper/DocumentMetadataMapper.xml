@@ -19,6 +19,7 @@
         <result property="expiresAt" column="expires_at"/>
         <result property="createdAt" column="created_at"/>
         <result property="updatedAt" column="updated_at"/>
+        <result property="userId" column="user_id"/>
     </resultMap>
 
     <select id="findById" resultMap="DocumentMetadataResultMap">
@@ -33,14 +34,20 @@
         SELECT * FROM document_metadata
     </select>
 
+    <select id="findByUserId" resultMap="DocumentMetadataResultMap">
+        SELECT * FROM document_metadata WHERE user_id = #{userId}
+    </select>
+
     <insert id="insert">
         INSERT INTO document_metadata (doc_id, file_name, file_type, page_count, upload_time, equipment_type, status,
-            source_type, credibility_weight, persist_to_knowledge_base, is_temporary, expires_at, created_at, updated_at)
+            source_type, credibility_weight, persist_to_knowledge_base, is_temporary, expires_at, created_at, updated_at,
+            user_id)
         VALUES (#{docId,jdbcType=VARCHAR}, #{fileName,jdbcType=VARCHAR}, #{fileType,jdbcType=VARCHAR}, #{pageCount,jdbcType=INTEGER}, #{uploadTime,jdbcType=TIMESTAMP},
             #{equipmentType,jdbcType=VARCHAR}, #{status,jdbcType=VARCHAR},
             #{sourceType,jdbcType=VARCHAR}, #{credibilityWeight,jdbcType=DOUBLE},
             #{persistToKnowledgeBase,jdbcType=INTEGER}, #{isTemporary,jdbcType=INTEGER},
-            #{expiresAt,jdbcType=TIMESTAMP}, #{createdAt,jdbcType=TIMESTAMP}, #{updatedAt,jdbcType=TIMESTAMP})
+            #{expiresAt,jdbcType=TIMESTAMP}, #{createdAt,jdbcType=TIMESTAMP}, #{updatedAt,jdbcType=TIMESTAMP},
+            #{userId,jdbcType=VARCHAR})
     </insert>
 
     <update id="update">

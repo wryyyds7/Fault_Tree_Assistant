@@ -15,6 +15,7 @@
         <result property="createdBy" column="created_by"/>
         <result property="createdAt" column="created_at"/>
         <result property="updatedAt" column="updated_at"/>
+        <result property="userId" column="user_id"/>
     </resultMap>
 
     <select id="findById" resultMap="VectorStoreResultMap">
@@ -38,10 +39,10 @@
     </select>
 
     <insert id="insert">
-        INSERT INTO vector_store (vector_id, paragraph_id, doc_id, vector_data, vector_dimension, embedding_model, similarity_score, created_by, created_at, updated_at)
+        INSERT INTO vector_store (vector_id, paragraph_id, doc_id, vector_data, vector_dimension, embedding_model, similarity_score, created_by, created_at, updated_at, user_id)
         VALUES (#{vectorId,jdbcType=VARCHAR}, #{paragraphId,jdbcType=VARCHAR}, #{docId,jdbcType=VARCHAR}, #{vectorData,jdbcType=CLOB}, #{vectorDimension,jdbcType=INTEGER},
             #{embeddingModel,jdbcType=VARCHAR}, #{similarityScore,jdbcType=DOUBLE},
-            #{createdBy,jdbcType=VARCHAR}, #{createdAt,jdbcType=TIMESTAMP}, #{updatedAt,jdbcType=TIMESTAMP})
+            #{createdBy,jdbcType=VARCHAR}, #{createdAt,jdbcType=TIMESTAMP}, #{updatedAt,jdbcType=TIMESTAMP}, #{userId,jdbcType=VARCHAR})
     </insert>
 
     <update id="update">

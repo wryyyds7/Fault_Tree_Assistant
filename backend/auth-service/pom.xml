@@ -52,7 +52,13 @@
         <dependency>
             <groupId>com.oracle.database.jdbc</groupId>
             <artifactId>ojdbc8</artifactId>
-            <version>19.3.0.0</version>
+            <version>21.9.0.0</version>
+        </dependency>
+        <!-- MyBatis Spring Boot Starter -->
+        <dependency>
+            <groupId>org.mybatis.spring.boot</groupId>
+            <artifactId>mybatis-spring-boot-starter</artifactId>
+            <version>3.0.3</version>
         </dependency>
     </dependencies>
 

@@ -2,6 +2,7 @@ package com.cxyaqcdm.fta.editor.service;
 
 import com.cxyaqcdm.fta.common.dto.FaultTreeDTO;
 import com.cxyaqcdm.fta.editor.entity.FaultTreeEntity;
+import com.cxyaqcdm.fta.editor.entity.FaultTreeVersionEntity;
 import java.util.List;
 import java.util.Map;
 
@@ -14,6 +15,10 @@ public interface FaultTreeEditorService {
     void deleteFaultTree(String treeId);
     FaultTreeDTO convertToDTO(FaultTreeEntity entity);
     FaultTreeEntity convertToEntity(FaultTreeDTO dto);
+
+    List<FaultTreeVersionEntity> getVersions(String treeId);
+    FaultTreeVersionEntity createVersion(String treeId, String changeSummary, String userId);
+    FaultTreeVersionEntity getVersion(String treeId, Integer versionNumber);
 
     FaultTreeDTO addNode(String treeId, FaultTreeDTO parentNode, FaultTreeDTO newNode, String userId);
     FaultTreeDTO updateNode(String treeId, FaultTreeDTO updatedNode, String userId);

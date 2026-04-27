@@ -76,7 +76,12 @@ public class VectorStoreServiceImpl implements VectorStoreService {
         metadata.setCreatedAt();
 
         documentMetadataMapper.insert(metadata);
-        log.info("Created document metadata for docId: {}, sourceType: {}, userId: {}", docId, sourceType, userId);
+        log.info("========== [VectorStore] Created document metadata ==========");
+        log.info("DocId: {}", docId);
+        log.info("FileName: {}, FileType: {}", fileName, fileType);
+        log.info("SourceType: {}, UserId: {}", sourceType, userId);
+        log.info("Status: {}, EquipmentType: {}", status, equipmentType);
+        log.info("====================================================");
         return metadata;
     }
 
@@ -130,7 +135,16 @@ public class VectorStoreServiceImpl implements VectorStoreService {
             metadataList.add(metadata);
         }
 
-        log.info("Created {} paragraph metadata entries for docId: {}, userId: {}", metadataList.size(), docId, userId);
+        log.info("========== [VectorStore] Created {} paragraph metadata entries ==========", metadataList.size());
+        log.info("DocId: {}, UserId: {}", docId, userId);
+        for (int i = 0; i < Math.min(3, metadataList.size()); i++) {
+            ParagraphMetadata p = metadataList.get(i);
+            log.info("Paragraph[{}]: id={}, content_length={}", i, p.getParagraphId(), p.getContent() != null ? p.getContent().length() : 0);
+        }
+        if (metadataList.size() > 3) {
+            log.info("... and {} more paragraphs", metadataList.size() - 3);
+        }
+        log.info("============================================================");
         return metadataList;
     }
 
@@ -148,25 +162,35 @@ public class VectorStoreServiceImpl implements VectorStoreService {
     public List<VectorStore> generateVectors(String docId, List<ParagraphMetadata> paragraphs, String userId) {
         List<VectorStore> vectors = new ArrayList<>();
         
+        log.info("========== [VectorStore] Starting generateVectors ==========");
+        log.info("DocId: {}, UserId: {}", docId, userId);
+        log.info("Paragraph count: {}", paragraphs.size());
+        log.info("Use local embedding: {}, Model: {}, Dimension: {}", useLocalEmbedding, vectorModelName, vectorDimension);
+        
         try {
             List<String> texts = paragraphs.stream()
                 .map(ParagraphMetadata::getContent)
                 .collect(Collectors.toList());
             
+            log.info("Calling embedding service for {} texts...", texts.size());
+            
             List<double[]> embeddings;
             
             if (useLocalEmbedding) {
+                log.info("Using LOCAL embedding generation");
                 embeddings = generateLocalEmbeddings(texts);
             } else {
                 try {
                     EmbeddingClient.EmbeddingRequest request = new EmbeddingClient.EmbeddingRequest(texts, vectorModelName);
                     embeddings = embeddingClient.embedTexts(request);
+                    log.info("Successfully got {} embeddings from external service", embeddings.size());
                 } catch (Exception e) {
                     log.warn("Failed to call embedding service, falling back to local embedding: {}", e.getMessage());
                     embeddings = generateLocalEmbeddings(texts);
                 }
             }
             
+            log.info("Inserting {} vectors to database...", paragraphs.size());
             for (int i = 0; i < paragraphs.size(); i++) {
                 ParagraphMetadata paragraph = paragraphs.get(i);
                 VectorStore vectorStore = new VectorStore();
@@ -187,9 +211,10 @@ public class VectorStoreServiceImpl implements VectorStoreService {
                 vectors.add(vectorStore);
             }
 
-            log.info("Generated {} real vectors for docId: {}, userId: {}", vectors.size(), docId, userId);
+            log.info("========== [VectorStore] Generated {} REAL vectors for docId: {}, userId: {} ==========", vectors.size(), docId, userId);
         } catch (Exception e) {
-            log.error("Failed to generate real vectors, falling back to dummy vectors: {}", e.getMessage());
+            log.error("========== [VectorStore] Failed to generate real vectors, falling back to dummy vectors ==========");
+            log.error("Error: {}", e.getMessage(), e);
             return generateDummyVectors(docId, paragraphs, userId);
         }
         
@@ -291,13 +316,30 @@ public class VectorStoreServiceImpl implements VectorStoreService {
     }
 
     @Override
-    public List<Map<String, Object>> searchSimilarVectors(String query, int topK) {
+    public List<Map<String, Object>> searchSimilarVectors(String query, int topK, String userId, List<String> docIds) {
         List<Map<String, Object>> results = new ArrayList<>();
-        
+
         try {
             List<ParagraphMetadata> allParagraphs = new ArrayList<>();
-            List<DocumentMetadata> documents = documentMetadataMapper.findAll();
-            
+            List<DocumentMetadata> documents;
+
+            if (docIds != null && !docIds.isEmpty()) {
+                documents = new ArrayList<>();
+                for (String docId : docIds) {
+                    DocumentMetadata doc = documentMetadataMapper.findByDocId(docId);
+                    if (doc != null) {
+                        documents.add(doc);
+                    }
+                }
+                log.info("Searching by docIds: {}, found {} documents", docIds, documents.size());
+            } else if (userId != null && !userId.isEmpty()) {
+                documents = documentMetadataMapper.findByUserId(userId);
+                log.info("Searching for user: {}, found {} documents", userId, documents.size());
+            } else {
+                documents = documentMetadataMapper.findAll();
+                log.info("No filters provided, searching all {} documents", documents.size());
+            }
+
             for (DocumentMetadata doc : documents) {
                 allParagraphs.addAll(paragraphMetadataMapper.findByDocId(doc.getDocId()));
             }
@@ -380,14 +422,35 @@ public class VectorStoreServiceImpl implements VectorStoreService {
     @Override
     public void processDocument(String docId, String fileName, String fileType, Integer pageCount, List<Map<String, Object>> paragraphs,
             String sourceType, Double credibilityWeight, String equipmentType, Boolean persistToKnowledgeBase, String userId) {
+        log.info("========== [VectorStore] processDocument 被调用 ==========");
+        log.info("[VectorStore] docId: {}", docId);
+        log.info("[VectorStore] fileName: {}", fileName);
+        log.info("[VectorStore] fileType: {}", fileType);
+        log.info("[VectorStore] pageCount: {}", pageCount);
+        log.info("[VectorStore] sourceType: {}", sourceType);
+        log.info("[VectorStore] credibilityWeight: {}", credibilityWeight);
+        log.info("[VectorStore] equipmentType: {}", equipmentType);
+        log.info("[VectorStore] persistToKnowledgeBase: {}", persistToKnowledgeBase);
+        log.info("[VectorStore] userId: {}", userId);
+        log.info("[VectorStore] paragraphs 数量: {}", paragraphs != null ? paragraphs.size() : 0);
+
+        DocumentMetadata existingDoc = documentMetadataMapper.findByDocId(docId);
+        boolean isUpdate = existingDoc != null;
+        
+        if (isUpdate) {
+            log.info("========== [VectorStore] Document already exists for docId: {}, deleting old data first", docId);
+            deleteDocumentMetadata(docId);
+            isUpdate = false;  // 删除后应该用 insert 而不是 update
+        }
+        
         DocumentMetadata docMetadata = new DocumentMetadata();
         docMetadata.setDocId(docId);
-        docMetadata.setFileName(fileName);
-        docMetadata.setFileType(fileType);
+        docMetadata.setFileName(fileName != null ? fileName : "unknown_" + docId);
+        docMetadata.setFileType(fileType != null ? fileType : "unknown");
         docMetadata.setPageCount(pageCount);
         docMetadata.setUploadTime(LocalDateTime.now());
         docMetadata.setStatus("processed");
-        docMetadata.setSourceType(sourceType);
+        docMetadata.setSourceType(sourceType != null ? sourceType : "unknown");
         if (credibilityWeight != null) {
             docMetadata.setCredibilityWeight(credibilityWeight);
         } else {
@@ -397,14 +460,33 @@ public class VectorStoreServiceImpl implements VectorStoreService {
         docMetadata.setPersistToKnowledgeBase(persistToKnowledgeBase);
         docMetadata.setIsTemporary(!persistToKnowledgeBase);
         docMetadata.setUserId(userId);
-        docMetadata.setCreatedAt();
-
-        documentMetadataMapper.insert(docMetadata);
-        log.info("Created document metadata for docId: {}, sourceType: {}, userId: {}", docId, sourceType, userId);
-
+        
+        if (isUpdate) {
+            log.info("========== [VectorStore] Updating document metadata for docId: {}", docId);
+            docMetadata.setUpdatedAt();
+            documentMetadataMapper.update(docMetadata);
+            log.info("========== [VectorStore] Document metadata updated successfully for docId: {}", docId);
+        } else {
+            log.info("========== [VectorStore] Inserting new document metadata for docId: {}", docId);
+            docMetadata.setCreatedAt();
+            documentMetadataMapper.insert(docMetadata);
+            log.info("========== [VectorStore] Document metadata inserted successfully for docId: {}", docId);
+        }
+        
+        // 验证 document_metadata 已成功保存
+        DocumentMetadata verifiedDoc = documentMetadataMapper.findByDocId(docId);
+        if (verifiedDoc == null) {
+            log.error("========== [VectorStore] FATAL: Document metadata not found after insert/update for docId: {}, cannot continue", docId);
+            throw new RuntimeException("Document metadata save failed, docId: " + docId);
+        }
+        
+        log.info("========== [VectorStore] Document metadata saved for docId: {}, sourceType: {}, userId: {}", docId, sourceType, userId);
+        log.info("FileName: {}, EquipmentType: {}, CredibilityWeight: {}", fileName, equipmentType, docMetadata.getCredibilityWeight());
+        
         List<ParagraphMetadata> paragraphMetadataList = createParagraphMetadata(docId, paragraphs, userId);
-
+        log.info("========== [VectorStore] Starting vector generation for docId: {}", docId);
         generateVectors(docId, paragraphMetadataList, userId);
+        log.info("========== [VectorStore] Vector generation completed for docId: {}", docId);
 
         try {
             Map<String, Object> causalPattern = new HashMap<>();
@@ -412,6 +494,8 @@ public class VectorStoreServiceImpl implements VectorStoreService {
             causalPattern.put("effect", "向量和元数据生成");
             causalPattern.put("equipmentType", equipmentType != null ? equipmentType : "general");
             causalPattern.put("gateType", "OR");
+            causalPattern.put("userId", userId);
+            causalPattern.put("docId", docId);
 
             knowledgeGraphClient.enrichKnowledge(causalPattern);
             log.info("Knowledge graph updated for docId: {}", docId);

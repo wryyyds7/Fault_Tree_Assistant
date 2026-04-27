@@ -4,8 +4,10 @@ import com.cxyaqcdm.fta.common.constants.ValidationRuleCode;
 import com.cxyaqcdm.fta.common.dto.FaultTreeDTO;
 import com.cxyaqcdm.fta.common.enums.EventTypeEnum;
 import com.cxyaqcdm.fta.common.enums.LogicGateEnum;
+import com.cxyaqcdm.fta.validation.client.AIAnalysisClient;
 import com.cxyaqcdm.fta.validation.dto.ValidationResultDTO;
 import com.cxyaqcdm.fta.validation.service.RuleValidationService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.kie.api.KieServices;
 import org.kie.api.builder.KieBuilder;
@@ -22,8 +24,10 @@ import org.springframework.stereotype.Service;
 import jakarta.annotation.PostConstruct;
 import java.io.File;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 @Service
@@ -33,8 +37,16 @@ public class RuleValidationServiceImpl implements RuleValidationService {
     private KieContainer kieContainer;
     private boolean droolsInitialized = false;
 
+    private final AIAnalysisClient aiAnalysisClient;
+    private final ObjectMapper objectMapper;
+
     @Value("${rule.engine.rules.path:rules}")
     private String rulesPath;
+
+    public RuleValidationServiceImpl(AIAnalysisClient aiAnalysisClient, ObjectMapper objectMapper) {
+        this.aiAnalysisClient = aiAnalysisClient;
+        this.objectMapper = objectMapper;
+    }
 
     @PostConstruct
     public void init() {
@@ -103,7 +115,41 @@ public class RuleValidationServiceImpl implements RuleValidationService {
         result.setValid(errors.isEmpty());
         result.setErrors(errors);
         
-        log.info("Fault tree validation complete. Valid: {}, Errors: {}", result.isValid(), errors.size());
+        // 调用AI进行智能分析
+        try {
+            log.info("Requesting AI analysis for fault tree");
+            List<Map<String, Object>> errorList = convertErrorsToMap(errors);
+            String aiSuggestion = aiAnalysisClient.analyzeFaultTree(faultTree, errorList);
+            
+            if (aiSuggestion != null && !aiSuggestion.trim().isEmpty()) {
+                result.setAiSuggestion(aiSuggestion);
+                result.setAiAnalysisCompleted(true);
+                log.info("AI analysis completed successfully");
+            } else {
+                result.setAiAnalysisCompleted(false);
+                log.warn("AI analysis returned empty result");
+            }
+        } catch (Exception e) {
+            log.error("AI analysis failed: {}", e.getMessage(), e);
+            result.setAiAnalysisCompleted(false);
+        }
+        
+        log.info("Fault tree validation complete. Valid: {}, Errors: {}, AI Analysis: {}", 
+            result.isValid(), errors.size(), result.isAiAnalysisCompleted());
+        return result;
+    }
+
+    private List<Map<String, Object>> convertErrorsToMap(List<ValidationResultDTO.ValidationErrorDTO> errors) {
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (ValidationResultDTO.ValidationErrorDTO error : errors) {
+            Map<String, Object> errorMap = new HashMap<>();
+            errorMap.put("code", error.getCode());
+            errorMap.put("nodeId", error.getNodeId());
+            errorMap.put("message", error.getMessage());
+            errorMap.put("errorType", error.getErrorType());
+            errorMap.put("suggestion", error.getSuggestion());
+            result.add(errorMap);
+        }
         return result;
     }
     

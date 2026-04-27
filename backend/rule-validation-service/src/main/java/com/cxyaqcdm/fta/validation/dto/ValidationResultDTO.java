@@ -7,6 +7,8 @@ import java.util.List;
 public class ValidationResultDTO {
     private boolean valid;
     private List<ValidationErrorDTO> errors;
+    private String aiSuggestion;
+    private boolean aiAnalysisCompleted;
 
     @Data
     public static class ValidationErrorDTO {

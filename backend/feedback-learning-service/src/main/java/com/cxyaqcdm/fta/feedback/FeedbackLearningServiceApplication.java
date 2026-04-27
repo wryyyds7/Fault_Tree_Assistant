@@ -8,7 +8,7 @@ import org.springframework.context.annotation.ComponentScan;
 @SpringBootApplication
 @EnableRabbit
 @ComponentScan(basePackages = {"com.cxyaqcdm.fta.feedback", "com.cxyaqcdm.fta.common"})
-public classdevFeedbackLearningServiceApplication {
+public class FeedbackLearningServiceApplication {
     public static void main(String[] args) {
         SpringApplication.run(FeedbackLearningServiceApplication.class, args);
     }

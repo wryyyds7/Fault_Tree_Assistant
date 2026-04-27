@@ -32,6 +32,11 @@
             <groupId>com.alibaba.cloud</groupId>
             <artifactId>spring-cloud-starter-alibaba-nacos-discovery</artifactId>
         </dependency>
+        <!-- Spring Cloud LoadBalancer (Feign + Nacos必需) -->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-loadbalancer</artifactId>
+        </dependency>
         <dependency>
             <groupId>com.xuelangyun.fta</groupId>
             <artifactId>common-core</artifactId>

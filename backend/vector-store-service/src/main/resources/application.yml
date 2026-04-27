@@ -26,13 +26,13 @@ spring:
         prefetch: 10
         default-requeue-rejected: false
   datasource:
-    url: ${datasource.url:jdbc:oracle:thin:@localhost:1521:XEPDB1}
+    url: ${datasource.url:jdbc:oracle:thin:@localhost:1521/XEPDB1}
     driverClassName: ${datasource.driverClassName:oracle.jdbc.OracleDriver}
     username: ${datasource.username:fta_user}
     password: ${datasource.password:123456}
-  mybatis:
-    mapper-locations: classpath:mapper/*.xml
-    type-aliases-package: com.cxyaqcdm.fta.vector.entity
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+  type-aliases-package: com.cxyaqcdm.fta.vector.entity
 
 server:
   port: 8090

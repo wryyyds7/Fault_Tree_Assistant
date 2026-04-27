@@ -1,0 +1,77 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+
+# Build outputs
+**/target/
+**/build/
+**/dist/
+**/.gradle/
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+*~
+
+# Docker
+**/Dockerfile*
+docker-compose*.yml
+.docker/
+
+# Documentation
+*.md
+docs/
+
+# Test files
+**/test/
+**/tests/
+**/*.test.js
+**/*.spec.js
+**/__tests__/
+
+# Node modules (will be installed during build)
+**/node_modules/
+**/node_modules_cache/
+
+# Python cache
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/.pytest_cache/
+**/.venv/
+**/venv/
+
+# Environment files (contain secrets)
+.env
+.env.*
+!.env.example
+
+# Maven wrapper (will be downloaded if needed)
+**/mvnw
+**/mvnw.cmd
+
+# IDE project files
+**/.project
+**/.classpath
+**/.settings/
+
+# Temporary data
+**/data/chroma/
+**/data/*.db

@@ -36,3 +36,10 @@ rule:
       path: ./rules
     update:
       interval: 60000 # 规则更新间隔（毫秒）
+
+# AI分析配置
+ai:
+  analysis:
+    enabled: true
+    service:
+      url: http://localhost:8001

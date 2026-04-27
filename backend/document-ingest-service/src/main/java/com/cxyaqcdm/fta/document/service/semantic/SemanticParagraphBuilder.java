@@ -112,13 +112,19 @@ public class SemanticParagraphBuilder {
 
         for (int i = 0; i < lines.length; i++) {
             String line = lines[i].trim();
-            if (line.isEmpty()) continue;
+            if (line.isEmpty()) {
+                if (currentBlock.length() > 0 && currentBlock.toString().trim().length() >= MIN_PARAGRAPH_LENGTH) {
+                    blocks.add(new TextBlock(currentBlock.toString().trim(), currentSection, currentPage, blockStartLine));
+                    currentBlock = new StringBuilder();
+                }
+                continue;
+            }
 
             Matcher pageMatcher = pagePattern.matcher(line);
             if (pageMatcher.find()) {
                 currentPage = Integer.parseInt(pageMatcher.group(1));
                 if (currentBlock.length() > 0) {
-                    blocks.add(new TextBlock(currentBlock.toString(), currentSection, currentPage, blockStartLine));
+                    blocks.add(new TextBlock(currentBlock.toString().trim(), currentSection, currentPage, blockStartLine));
                     currentBlock = new StringBuilder();
                 }
                 continue;
@@ -128,7 +134,7 @@ public class SemanticParagraphBuilder {
             boolean isSection = sections.stream().anyMatch(s -> s.lineNumber == currentLine);
 
             if (isSection && currentBlock.length() > 0) {
-                blocks.add(new TextBlock(currentBlock.toString(), currentSection, currentPage, blockStartLine));
+                blocks.add(new TextBlock(currentBlock.toString().trim(), currentSection, currentPage, blockStartLine));
                 currentBlock = new StringBuilder();
                 currentSection = line;
                 blockStartLine = i;
@@ -140,11 +146,16 @@ public class SemanticParagraphBuilder {
                     currentBlock.append("\n");
                 }
                 currentBlock.append(line);
+
+                if (currentBlock.length() > MAX_PARAGRAPH_LENGTH && line.endsWith("。")) {
+                    blocks.add(new TextBlock(currentBlock.toString().trim(), currentSection, currentPage, blockStartLine));
+                    currentBlock = new StringBuilder();
+                }
             }
         }
 
-        if (currentBlock.length() > 0) {
-            blocks.add(new TextBlock(currentBlock.toString(), currentSection, currentPage, blockStartLine));
+        if (currentBlock.length() > 0 && currentBlock.toString().trim().length() >= MIN_PARAGRAPH_LENGTH) {
+            blocks.add(new TextBlock(currentBlock.toString().trim(), currentSection, currentPage, blockStartLine));
         }
 
         return blocks;

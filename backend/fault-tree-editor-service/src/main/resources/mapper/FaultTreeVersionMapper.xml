@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cxyaqcdm.fta.editor.mapper.FaultTreeVersionMapper">
+    <resultMap id="FaultTreeVersionResultMap" type="com.cxyaqcdm.fta.editor.entity.FaultTreeVersionEntity">
+        <id property="id" column="id"/>
+        <result property="versionId" column="version_id"/>
+        <result property="treeId" column="tree_id"/>
+        <result property="userId" column="user_id"/>
+        <result property="versionNumber" column="version_number"/>
+        <result property="treeDataSnapshot" column="tree_data_snapshot"/>
+        <result property="changeSummary" column="change_summary"/>
+        <result property="changedBy" column="changed_by"/>
+        <result property="createdAt" column="created_at"/>
+    </resultMap>
+
+    <select id="findByTreeId" resultMap="FaultTreeVersionResultMap">
+        SELECT * FROM fault_tree_versions
+        WHERE tree_id = #{treeId}
+        ORDER BY version_number DESC
+    </select>
+
+    <select id="findByTreeIdAndVersionNumber" resultMap="FaultTreeVersionResultMap">
+        SELECT * FROM fault_tree_versions
+        WHERE tree_id = #{treeId} AND version_number = #{versionNumber}
+    </select>
+
+    <select id="findLatestByTreeId" resultMap="FaultTreeVersionResultMap">
+        SELECT * FROM fault_tree_versions
+        WHERE tree_id = #{treeId}
+        ORDER BY version_number DESC
+        FETCH FIRST 1 ROWS ONLY
+    </select>
+
+    <select id="getMaxVersionNumber" resultType="java.lang.Integer">
+        SELECT MAX(version_number) FROM fault_tree_versions WHERE tree_id = #{treeId}
+    </select>
+
+    <select id="getVersionCount" resultType="java.lang.Integer">
+        SELECT COUNT(*) FROM fault_tree_versions WHERE tree_id = #{treeId}
+    </select>
+
+    <insert id="insert">
+        INSERT INTO fault_tree_versions (version_id, tree_id, user_id, version_number, tree_data_snapshot,
+            change_summary, changed_by, created_at)
+        VALUES (#{versionId,jdbcType=VARCHAR}, #{treeId,jdbcType=VARCHAR}, #{userId,jdbcType=VARCHAR},
+            #{versionNumber,jdbcType=INTEGER}, #{treeDataSnapshot,jdbcType=CLOB},
+            #{changeSummary,jdbcType=VARCHAR}, #{changedBy,jdbcType=VARCHAR}, #{createdAt,jdbcType=TIMESTAMP})
+    </insert>
+
+    <delete id="deleteByTreeId">
+        DELETE FROM fault_tree_versions WHERE tree_id = #{treeId}
+    </delete>
+
+    <delete id="deleteOldVersions">
+        DELETE FROM fault_tree_versions
+        WHERE tree_id = #{treeId}
+        AND id NOT IN (
+            SELECT id FROM fault_tree_versions
+            WHERE tree_id = #{treeId}
+            ORDER BY version_number DESC
+            FETCH FIRST #{deleteCount} ROWS ONLY
+        )
+    </delete>
+</mapper>

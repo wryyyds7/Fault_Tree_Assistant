@@ -1,11 +1,38 @@
-FROM openjdk:17-jdk-alpine
+# Stage 1: Build
+FROM maven:3.9-eclipse-temurin-17-alpine AS builder
 
 WORKDIR /app
 
-COPY . /app
+COPY pom.xml ./
+COPY common-core/pom.xml ./common-core/
+COPY feedback-learning-service/pom.xml ./feedback-learning-service/
 
-RUN ./mvnw clean package -DskipTests -pl feedback-learning-service -am
+RUN mvn dependency:go-offline -B -pl feedback-learning-service -am
+
+COPY common-core/src ./common-core/src
+COPY feedback-learning-service/src ./feedback-learning-service/src
+
+RUN mvn package -DskipTests -B -pl feedback-learning-service -am
+
+# Stage 2: Runtime
+FROM eclipse-temurin:17-jre-alpine
+
+RUN apk add --no-cache curl && \
+    addgroup -S appgroup && adduser -S appuser -G appgroup
+
+WORKDIR /app
+
+COPY --from=builder /app/common-core/target/*.jar /app/lib/
+COPY --from=builder /app/feedback-learning-service/target/feedback-learning-service-*.jar /app/feedback-learning-service.jar
+
+RUN chown -R appuser:appgroup /app && \
+    chmod -R 755 /app
+
+USER appuser
 
 EXPOSE 8085
 
-CMD ["java", "-jar", "feedback-learning-service/target/feedback-learning-service-1.0.0.jar"]
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=5 \
+    CMD curl -f http://localhost:8085/actuator/health || exit 1
+
+CMD ["java", "-XX:+UseContainerSupport", "-XX:MaxRAMPercentage=75.0", "-jar", "feedback-learning-service.jar"]

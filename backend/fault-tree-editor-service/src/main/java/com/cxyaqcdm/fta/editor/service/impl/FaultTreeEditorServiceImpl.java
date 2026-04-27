@@ -2,7 +2,9 @@ package com.cxyaqcdm.fta.editor.service.impl;
 
 import com.cxyaqcdm.fta.common.dto.FaultTreeDTO;
 import com.cxyaqcdm.fta.editor.entity.FaultTreeEntity;
+import com.cxyaqcdm.fta.editor.entity.FaultTreeVersionEntity;
 import com.cxyaqcdm.fta.editor.mapper.FaultTreeMapper;
+import com.cxyaqcdm.fta.editor.mapper.FaultTreeVersionMapper;
 import com.cxyaqcdm.fta.editor.service.FaultTreeEditorService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -19,6 +21,7 @@ import java.util.UUID;
 public class FaultTreeEditorServiceImpl implements FaultTreeEditorService {
 
     private final FaultTreeMapper faultTreeMapper;
+    private final FaultTreeVersionMapper faultTreeVersionMapper;
     private final ObjectMapper objectMapper;
 
     @Override
@@ -53,6 +56,12 @@ public class FaultTreeEditorServiceImpl implements FaultTreeEditorService {
             log.info("📥 [Service] 准备插入数据库, entity: {}", entity);
             faultTreeMapper.insert(entity);
             log.info("✅ [Service] 插入数据库成功, treeId = {}", treeId);
+            
+            // 自动创建第一个版本
+            String changeSummary = entity.getName() != null ? 
+                "创建故障树: " + entity.getName() : "创建故障树";
+            createVersion(treeId, changeSummary, userId);
+            
             return entity;
         } catch (Exception e) {
             log.error("❌ [Service] Error creating fault tree: {}", e.getMessage(), e);
@@ -101,6 +110,12 @@ public class FaultTreeEditorServiceImpl implements FaultTreeEditorService {
             entity.setUpdatedAt();
 
             faultTreeMapper.update(entity);
+            
+            // 自动创建版本
+            String changeSummary = faultTreeDTO.getName() != null ? 
+                "更新故障树: " + faultTreeDTO.getName() : "更新故障树";
+            createVersion(treeId, changeSummary, userId);
+            
             log.info("✅ updateFaultTree 完成");
             return entity;
         } catch (Exception e) {
@@ -187,6 +202,62 @@ public class FaultTreeEditorServiceImpl implements FaultTreeEditorService {
             log.error("❌ Error converting DTO to entity: {}", e.getMessage(), e);
             throw new RuntimeException("Failed to convert DTO to entity", e);
         }
+    }
+
+    @Override
+    public List<FaultTreeVersionEntity> getVersions(String treeId) {
+        return faultTreeVersionMapper.findByTreeId(treeId);
+    }
+
+    @Override
+    public FaultTreeVersionEntity createVersion(String treeId, String changeSummary, String userId) {
+        try {
+            log.info("🔍 createVersion 开始, treeId={}, changeSummary={}", treeId, changeSummary);
+
+            FaultTreeEntity tree = faultTreeMapper.findByTreeId(treeId);
+            if (tree == null) {
+                throw new RuntimeException("Fault tree not found");
+            }
+
+            Integer maxVersion = faultTreeVersionMapper.getMaxVersionNumber(treeId);
+            int newVersionNumber = (maxVersion == null) ? 1 : maxVersion + 1;
+
+            FaultTreeVersionEntity version = new FaultTreeVersionEntity();
+            version.setVersionId("ver_" + UUID.randomUUID().toString().replace("-", ""));
+            version.setTreeId(treeId);
+            version.setUserId(userId);
+            version.setVersionNumber(newVersionNumber);
+            version.setTreeDataSnapshot(tree.getTreeData());
+            version.setChangeSummary(changeSummary);
+            version.setChangedBy(userId);
+            version.setCreatedAt();
+
+            faultTreeVersionMapper.insert(version);
+            log.info("✅ createVersion 完成, versionId={}, versionNumber={}", version.getVersionId(), newVersionNumber);
+
+            cleanupOldVersions(treeId);
+
+            return version;
+        } catch (Exception e) {
+            log.error("❌ Error creating version: {}", e.getMessage(), e);
+            throw new RuntimeException("Failed to create version", e);
+        }
+    }
+
+    private void cleanupOldVersions(String treeId) {
+        int maxVersions = 10;
+        Integer count = faultTreeVersionMapper.getVersionCount(treeId);
+        if (count != null && count > maxVersions) {
+            int deleteCount = count - maxVersions;
+            log.info("🗑️ 版本数量超过{}，开始清理旧版本，将删除{}个版本", maxVersions, deleteCount);
+            faultTreeVersionMapper.deleteOldVersions(treeId, deleteCount);
+            log.info("✅ 旧版本清理完成");
+        }
+    }
+
+    @Override
+    public FaultTreeVersionEntity getVersion(String treeId, Integer versionNumber) {
+        return faultTreeVersionMapper.findByTreeIdAndVersionNumber(treeId, versionNumber);
     }
 
     @Override

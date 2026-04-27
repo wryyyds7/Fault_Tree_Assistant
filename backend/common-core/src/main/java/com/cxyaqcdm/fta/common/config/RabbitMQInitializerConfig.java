@@ -57,7 +57,7 @@ public class RabbitMQInitializerConfig {
         SimpleRabbitListenerContainerFactory factory = new SimpleRabbitListenerContainerFactory();
         factory.setConnectionFactory(connectionFactory);
         factory.setMessageConverter(jsonMessageConverter());
-        factory.setAcknowledgeMode(AcknowledgeMode.MANUAL);
+        factory.setAcknowledgeMode(AcknowledgeMode.AUTO);
         factory.setPrefetchCount(10);
         factory.setDefaultRequeueRejected(false);
         return factory;
@@ -217,9 +217,9 @@ public class RabbitMQInitializerConfig {
     // ==================== Main Bindings ====================
 
     @Bean
-    public Binding documentParsedBinding() {
+    public Binding documentParseBinding() {
         return new Binding(AmqpConstants.QUEUE_DOCUMENT_PARSE, Binding.DestinationType.QUEUE,
-                AmqpConstants.EXCHANGE_DOCUMENT, AmqpConstants.ROUTING_KEY_DOCUMENT_PARSED, null);
+                AmqpConstants.EXCHANGE_DOCUMENT, AmqpConstants.ROUTING_KEY_DOCUMENT_PARSE_REQUEST, null);
     }
 
     @Bean

@@ -1,8 +1,12 @@
 package com.cxyaqcdm.fta.document.service.impl;
 
 import com.cxyaqcdm.fta.common.constants.AmqpConstants;
+import com.cxyaqcdm.fta.document.client.ClassificationClient;
+import com.cxyaqcdm.fta.document.client.KnowledgeGraphClient;
+import com.cxyaqcdm.fta.document.client.RAGServiceClient;
 import com.cxyaqcdm.fta.document.client.VectorStoreClient;
 import com.cxyaqcdm.fta.document.service.DocumentService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
@@ -41,6 +45,9 @@ public class DocumentServiceImpl implements DocumentService {
 
     private final RabbitTemplate rabbitTemplate;
     private final VectorStoreClient vectorStoreClient;
+    private final ClassificationClient classificationClient;
+    private final RAGServiceClient ragServiceClient;
+    private final KnowledgeGraphClient knowledgeGraphClient;
 
     @Value("${document.storage.path}")
     private String storagePath;
@@ -69,11 +76,18 @@ public class DocumentServiceImpl implements DocumentService {
     @Override
     public Map<String, Object> uploadDocument(MultipartFile file, String sourceType, String equipmentType, Boolean persistToKnowledgeBase, String userId) {
         Map<String, Object> result = new HashMap<>();
+        log.info("========================================================");
+        log.info("★★☆ uploadDocument 开始 ☆★★");
+        log.info("文件名: {}, sourceType: {}, equipmentType: {}, persistToKnowledgeBase: {}, userId: {}",
+                file.getOriginalFilename(), sourceType, equipmentType, persistToKnowledgeBase, userId);
+        log.info("========================================================");
+
         try {
             String docId = "doc_" + UUID.randomUUID().toString().replace("-", "");
+            log.info("[Upload Step 1] 生成 docId: {}", docId);
 
             Path storageDir = getStorageDirectory();
-            log.info("Storage directory: {}", storageDir);
+            log.info("[Upload Step 2] 存储目录: {}", storageDir);
 
             if (!Files.exists(storageDir)) {
                 Files.createDirectories(storageDir);
@@ -89,9 +103,43 @@ public class DocumentServiceImpl implements DocumentService {
             Path filePath = userDir.resolve(fileName);
             file.transferTo(filePath.toFile());
 
-            String actualSourceType = sourceType != null ? sourceType : "manual";
+            String actualSourceType = sourceType;
             String actualEquipmentType = (equipmentType != null && !equipmentType.isEmpty()) ? equipmentType : null;
             Boolean actualPersistToKnowledgeBase = persistToKnowledgeBase != null ? persistToKnowledgeBase : true;
+
+            if (sourceType == null || sourceType.isEmpty() || "auto".equalsIgnoreCase(sourceType) || "unknown".equalsIgnoreCase(sourceType)) {
+                log.info("Source type not specified, performing automatic classification for: {}", file.getOriginalFilename());
+                try {
+                    String contentPreview = extractContentPreview(filePath.toFile(), getFileExtension(file.getOriginalFilename()));
+                    if (contentPreview != null && contentPreview.length() > 50) {
+                        ClassificationClient.ClassificationResult classificationResult =
+                                classificationClient.classifyDocument(file.getOriginalFilename(), contentPreview);
+                        if (classificationResult != null) {
+                            actualSourceType = classificationResult.getSourceType();
+                            result.put("classificationConfidence", classificationResult.getConfidence());
+                            result.put("classificationReasoning", classificationResult.getReasoning());
+                            result.put("classificationMethod", classificationResult.getMethod());
+                            result.put("classificationCredibilityWeight", classificationResult.getCredibilityWeight());
+                            log.info("Document auto-classified: sourceType={}, confidence={}, method={}",
+                                    actualSourceType, classificationResult.getConfidence(), classificationResult.getMethod());
+                        } else {
+                            actualSourceType = "unknown";
+                        }
+                    } else {
+                        actualSourceType = "unknown";
+                        log.warn("Content preview too short for classification");
+                    }
+                } catch (Exception e) {
+                    log.error("Failed to classify document: {}", e.getMessage());
+                    actualSourceType = "unknown";
+                }
+            } else {
+                log.info("Using user-provided source type: {}", sourceType);
+            }
+
+            if (actualSourceType == null || actualSourceType.isEmpty()) {
+                actualSourceType = "unknown";
+            }
 
             result.put("docId", docId);
             result.put("documentId", docId);
@@ -112,10 +160,33 @@ public class DocumentServiceImpl implements DocumentService {
             message.put("userId", userId);
             message.put("filePath", filePath.toString());
 
+            log.info("[Upload Step 3] 发送消息到队列: EXCHANGE_DOCUMENT / ROUTING_KEY_DOCUMENT_PARSE_REQUEST");
+            log.info("[Upload Step 3] 消息内容: docId={}, filePath={}, sourceType={}, userId={}",
+                    docId, filePath.toString(), actualSourceType, userId);
+
             rabbitTemplate.convertAndSend(
-                    AmqpConstants.QUEUE_DOCUMENT_PARSE,
+                    AmqpConstants.EXCHANGE_DOCUMENT,
+                    AmqpConstants.ROUTING_KEY_DOCUMENT_PARSE_REQUEST,
                     message
             );
+
+            log.info("[Upload Step 3] ✓ 消息已发送到队列");
+
+            Map<String, Object> metadata = new HashMap<>();
+            metadata.put("docId", docId);
+            metadata.put("sourceType", actualSourceType);
+            metadata.put("equipmentType", actualEquipmentType);
+            metadata.put("persistToKnowledgeBase", actualPersistToKnowledgeBase);
+            metadata.put("fileName", file.getOriginalFilename());
+            metadata.put("fileType", getFileExtension(file.getOriginalFilename()));
+            metadata.put("userId", userId);
+            metadata.put("uploadTime", java.time.Instant.now().toString());
+            metadata.put("classificationConfidence", result.get("classificationConfidence"));
+            metadata.put("classificationReasoning", result.get("classificationReasoning"));
+            metadata.put("classificationMethod", result.get("classificationMethod"));
+            double credibilityWeight = getCredibilityWeightBySourceType(actualSourceType);
+            metadata.put("credibilityWeight", credibilityWeight);
+            saveDocumentMetadata(userDir, docId, metadata);
 
             log.info("Document uploaded successfully: {}, sourceType: {}, userId: {}", docId, actualSourceType, userId);
         } catch (IOException e) {
@@ -126,8 +197,87 @@ public class DocumentServiceImpl implements DocumentService {
         return result;
     }
 
+    private void saveDocumentMetadata(Path userDir, String docId, Map<String, Object> metadata) {
+        try {
+            ObjectMapper objectMapper = new ObjectMapper();
+            Path metadataPath = userDir.resolve(docId + "_metadata.json");
+            objectMapper.writeValue(metadataPath.toFile(), metadata);
+            log.info("Saved document metadata: {}", metadataPath);
+        } catch (Exception e) {
+            log.error("Failed to save document metadata: {}", e.getMessage());
+        }
+    }
+
+    private Map<String, Object> loadDocumentMetadata(Path userDir, String docId) {
+        try {
+            Path metadataPath = userDir.resolve(docId + "_metadata.json");
+            if (Files.exists(metadataPath)) {
+                ObjectMapper objectMapper = new ObjectMapper();
+                return objectMapper.readValue(metadataPath.toFile(), Map.class);
+            }
+        } catch (Exception e) {
+            log.error("Failed to load document metadata: {}", e.getMessage());
+        }
+        return null;
+    }
+
+    private void saveDocumentMetadataToDatabase(Map<String, Object> metadata) {
+        try {
+            Map<String, Object> request = new HashMap<>();
+            request.put("docId", metadata.get("docId"));
+            request.put("fileName", metadata.get("fileName"));
+            request.put("fileType", metadata.get("fileType"));
+            request.put("pageCount", 0);
+            request.put("sourceType", metadata.get("sourceType"));
+            request.put("equipmentType", metadata.get("equipmentType"));
+            request.put("persistToKnowledgeBase", metadata.get("persistToKnowledgeBase"));
+            request.put("userId", metadata.get("userId"));
+            request.put("status", "PENDING");
+
+            vectorStoreClient.createDocumentMetadata(request);
+            log.info("Document metadata saved to database: docId={}", metadata.get("docId"));
+        } catch (Exception e) {
+            log.error("Failed to save document metadata to database: {}", e.getMessage());
+        }
+    }
+
+    private String extractContentPreview(File file, String fileExtension) {
+        try {
+            String content = "";
+            switch (fileExtension.toLowerCase()) {
+                case "pdf":
+                    content = parsePdf(file);
+                    break;
+                case "txt":
+                    content = parseTxt(file);
+                    break;
+                case "docx":
+                    content = parseDocx(file);
+                    break;
+                case "xlsx":
+                case "xls":
+                    content = parseExcel(file);
+                    break;
+                case "csv":
+                    content = parseCsv(file);
+                    break;
+                default:
+                    return null;
+            }
+            return content.length() > 800 ? content.substring(0, 800) : content;
+        } catch (Exception e) {
+            log.error("Failed to extract content preview: {}", e.getMessage());
+            return null;
+        }
+    }
+
     @Override
     public void processDocument(Map<String, Object> message) {
+        log.info("========================================================");
+        log.info("★★☆ processDocument 开始 ☆★★");
+        log.info("收到消息 keys: {}", message.keySet());
+        log.info("========================================================");
+
         try {
             String docId = (String) message.get("docId");
             String sourceType = (String) message.getOrDefault("sourceType", "manual");
@@ -137,12 +287,18 @@ public class DocumentServiceImpl implements DocumentService {
             String userId = (String) message.get("userId");
             String filePathStr = (String) message.get("filePath");
 
+            log.info("[Step 1] 解析消息参数完成: docId={}, sourceType={}, equipmentType={}, userId={}",
+                    docId, sourceType, equipmentType, userId);
+
             Path storageDir = getStorageDirectory();
             Path userDir = storageDir.resolve(userId != null ? userId : "anonymous");
             File documentFile = null;
 
+            log.info("[Step 2] 存储目录: userDir={}", userDir);
+
             if (filePathStr != null && !filePathStr.isEmpty()) {
                 documentFile = new File(filePathStr);
+                log.info("[Step 2a] 使用提供的文件路径: {}", filePathStr);
                 if (!documentFile.exists()) {
                     log.warn("File not found at saved path: {}, falling back to search", filePathStr);
                     documentFile = null;
@@ -150,6 +306,7 @@ public class DocumentServiceImpl implements DocumentService {
             }
 
             if (documentFile == null) {
+                log.info("[Step 2b] 搜索文件 in userDir: {}", userDir);
                 File[] files = userDir.toFile().listFiles((dir, name) -> name.startsWith(docId));
                 if (files == null || files.length == 0) {
                     log.error("Document file not found in directory: {}, docId: {}", userDir, docId);
@@ -158,12 +315,17 @@ public class DocumentServiceImpl implements DocumentService {
                 documentFile = files[0];
             }
 
+            log.info("[Step 3] 找到文件: {}, 大小: {} bytes", documentFile.getName(), documentFile.length());
+
             log.info("Processing document: {}, file: {}", docId, documentFile.getName());
 
             String fileExtension = getFileExtension(documentFile.getName()).toLowerCase();
+            log.info("[Step 4] 文件扩展名: {}", fileExtension);
+
             String content = "";
             int pageCount = 0;
 
+            log.info("[Step 5] 开始解析文件内容...");
             switch (fileExtension) {
                 case "pdf":
                     content = parsePdf(documentFile);
@@ -189,62 +351,80 @@ public class DocumentServiceImpl implements DocumentService {
                 default:
                     throw new IOException("Unsupported file type: " + fileExtension);
             }
+            log.info("[Step 5] 文件解析完成! content长度: {}, pageCount: {}", content.length(), pageCount);
 
             Map<String, Object> structuredContent = extractStructuredContent(content);
 
             try {
                 List<Map<String, Object>> paragraphs = new ArrayList<>();
-                String[] contentLines = content.split("\n");
-                for (int i = 0; i < contentLines.length; i++) {
-                    if (!contentLines[i].trim().isEmpty()) {
-                        Map<String, Object> paragraph = new HashMap<>();
-                        paragraph.put("sectionTitle", "");
-                        paragraph.put("pageNumber", 1);
-                        paragraph.put("content", contentLines[i].trim());
-                        paragraph.put("keywords", "");
-                        paragraph.put("confidenceScore", 0.9);
-                        paragraph.put("sourceType", sourceType);
-                        paragraph.put("credibilityWeight", getCredibilityWeightBySourceType(sourceType));
-                        paragraphs.add(paragraph);
-                    }
+                if (content != null && !content.trim().isEmpty()) {
+                    Map<String, Object> paragraph = new HashMap<>();
+                    paragraph.put("sectionTitle", "");
+                    paragraph.put("pageNumber", 1);
+                    paragraph.put("content", content);
+                    paragraph.put("keywords", "");
+                    paragraph.put("confidenceScore", 0.9);
+                    paragraph.put("sourceType", sourceType);
+                    paragraph.put("credibilityWeight", getCredibilityWeightBySourceType(sourceType));
+                    paragraphs.add(paragraph);
+                }
+                log.info("[Step 6] 生成段落数: {}, 发送完整内容由Python语义分块", paragraphs.size());
+
+                Map<String, Object> syncRequest = new HashMap<>();
+                syncRequest.put("docId", docId);
+                syncRequest.put("fileName", fileName);
+                syncRequest.put("fileType", fileExtension);
+                syncRequest.put("pageCount", pageCount);
+                syncRequest.put("userId", userId);
+                syncRequest.put("sourceType", sourceType);
+                syncRequest.put("equipmentType", equipmentType);
+                syncRequest.put("credibilityWeight", getCredibilityWeightBySourceType(sourceType));
+                syncRequest.put("persistToKnowledgeBase", persistToKnowledgeBase);
+                syncRequest.put("paragraphs", paragraphs);
+
+                log.info("[Step 7] 调用 ragServiceClient.syncVectorsToChroma (语义分块 & 向量存储)...");
+                log.info("[Step 7] syncRequest: docId={}, userId={}, paragraphs数量={}", docId, userId, paragraphs.size());
+                if (paragraphs.size() > 0) {
+                    log.info("[Step 7] 第一个段落内容预览: {}", paragraphs.get(0).get("content"));
                 }
 
-                Map<String, Object> vectorRequest = new HashMap<>();
-                vectorRequest.put("docId", docId);
-                vectorRequest.put("fileName", fileName);
-                vectorRequest.put("fileType", fileExtension);
-                vectorRequest.put("pageCount", pageCount);
-                vectorRequest.put("equipmentType", equipmentType);
-                vectorRequest.put("sourceType", sourceType);
-                vectorRequest.put("credibilityWeight", getCredibilityWeightBySourceType(sourceType));
-                vectorRequest.put("persistToKnowledgeBase", persistToKnowledgeBase);
-                vectorRequest.put("userId", userId);
-                vectorRequest.put("paragraphs", paragraphs);
-
-                vectorStoreClient.processDocument(vectorRequest);
-                log.info("Vector and metadata generated for docId: {}", docId);
+                Map<String, Object> syncResponse = ragServiceClient.syncVectorsToChroma(syncRequest);
+                log.info("[Step 7] ✓ Chroma同步响应: {}", syncResponse);
             } catch (Exception e) {
-                log.error("Failed to generate vector and metadata: {}", e.getMessage());
+                log.error("[Step 7] ✗ Chroma同步失败: {}, 异常类型: {}", e.getMessage(), e.getClass().getName());
             }
 
-            Map<String, Object> event = new HashMap<>();
-            event.put("docId", docId);
-            event.put("status", "processed");
-            event.put("content", content);
-            event.put("pageCount", pageCount);
-            event.put("structuredContent", structuredContent);
+            try {
+                Map<String, Object> event = new HashMap<>();
+                event.put("docId", docId);
+                event.put("status", "processed");
+                event.put("content", content);
+                event.put("pageCount", pageCount);
+                event.put("structuredContent", structuredContent);
 
-            rabbitTemplate.convertAndSend(
-                    AmqpConstants.EXCHANGE_DOCUMENT,
-                    AmqpConstants.ROUTING_KEY_DOCUMENT_PARSED,
-                    event
-            );
+                rabbitTemplate.convertAndSend(
+                        AmqpConstants.EXCHANGE_DOCUMENT,
+                        AmqpConstants.ROUTING_KEY_DOCUMENT_PARSED,
+                        event
+                );
+            } catch (Exception e) {
+                log.error("Failed to send document processed event: {}", e.getMessage());
+            }
 
             log.info("Document processed successfully: {}, page count: {}", docId, pageCount);
 
             Path parsedContentPath = userDir.resolve(docId + "_parsed.txt");
             Files.writeString(parsedContentPath, content);
             log.info("Parsed content saved to: {}", parsedContentPath);
+
+            Map<String, Object> metadata = new HashMap<>();
+            metadata.put("sourceType", sourceType);
+            metadata.put("credibilityWeight", getCredibilityWeightBySourceType(sourceType));
+            metadata.put("processedTime", java.time.Instant.now().toString());
+            ObjectMapper metadataMapper = new ObjectMapper();
+            Path metadataPath = userDir.resolve(docId + "_metadata.json");
+            metadataMapper.writeValue(metadataPath.toFile(), metadata);
+            log.info("Document metadata saved to: {}", metadataPath);
         } catch (Exception e) {
             log.error("Failed to process document: {}", e.getMessage());
             String actualDocId = (String) message.get("docId");
@@ -449,6 +629,22 @@ public class DocumentServiceImpl implements DocumentService {
             java.util.Set<String> addedDocIds = new java.util.HashSet<>();
             java.util.List<File> dirsToSearch = new java.util.ArrayList<>();
 
+            Map<String, Map<String, Object>> dbMetadataCache = new java.util.HashMap<>();
+            try {
+                List<Map<String, Object>> dbDocuments = vectorStoreClient.getAllDocumentMetadata(userId);
+                if (dbDocuments != null) {
+                    for (Map<String, Object> dbDoc : dbDocuments) {
+                        String docId = (String) dbDoc.get("docId");
+                        if (docId != null) {
+                            dbMetadataCache.put(docId, dbDoc);
+                        }
+                    }
+                    log.info("Loaded {} document metadata from database", dbDocuments.size());
+                }
+            } catch (Exception e) {
+                log.warn("Failed to load document metadata from database: {}", e.getMessage());
+            }
+
             if (userId == null || userId.isEmpty()) {
                 File[] allDirs = storageDir.toFile().listFiles(File::isDirectory);
                 if (allDirs != null) {
@@ -481,7 +677,7 @@ public class DocumentServiceImpl implements DocumentService {
                 }
 
                 for (File file : files) {
-                    if (file.isFile() && !file.getName().endsWith("_parsed.txt")) {
+                    if (file.isFile() && !file.getName().endsWith("_parsed.txt") && !file.getName().endsWith("_metadata.json")) {
                         String fileName = file.getName();
                         // 跳过 "doc_" 前缀，找下一个 "_" 的位置
                         int prefixEnd = fileName.startsWith("doc_") ? 4 : 0;
@@ -507,6 +703,34 @@ public class DocumentServiceImpl implements DocumentService {
                         Path parsedContentPath = userDir.toPath().resolve(docId + "_parsed.txt");
                         doc.put("status", Files.exists(parsedContentPath) ? "已解析" : "解析中");
 
+                        Map<String, Object> dbMetadata = dbMetadataCache.get(docId);
+                        if (dbMetadata != null) {
+                            doc.put("sourceType", dbMetadata.getOrDefault("sourceType", "unknown"));
+                            doc.put("credibilityWeight", dbMetadata.getOrDefault("credibilityWeight", 0.5));
+                            doc.put("equipmentType", dbMetadata.get("equipmentType"));
+                            doc.put("pageCount", dbMetadata.get("pageCount"));
+                            if (dbMetadata.get("uploadTime") != null) {
+                                doc.put("uploadTime", dbMetadata.get("uploadTime"));
+                            }
+                        } else {
+                            Path metadataPath = userDir.toPath().resolve(docId + "_metadata.json");
+                            if (Files.exists(metadataPath)) {
+                                try {
+                                    ObjectMapper metadataMapper = new ObjectMapper();
+                                    Map<String, Object> metadata = metadataMapper.readValue(metadataPath.toFile(), Map.class);
+                                    doc.put("sourceType", metadata.getOrDefault("sourceType", "unknown"));
+                                    doc.put("credibilityWeight", metadata.getOrDefault("credibilityWeight", 0.5));
+                                } catch (Exception e) {
+                                    log.warn("Failed to read metadata for docId: {}, using defaults", docId);
+                                    doc.put("sourceType", "unknown");
+                                    doc.put("credibilityWeight", 0.5);
+                                }
+                            } else {
+                                doc.put("sourceType", "unknown");
+                                doc.put("credibilityWeight", 0.5);
+                            }
+                        }
+
                         documents.add(doc);
                     }
                 }
@@ -531,7 +755,6 @@ public class DocumentServiceImpl implements DocumentService {
                 stripper.setEndPage(pageNum);
                 String pageText = stripper.getText(document);
                 if (!pageText.trim().isEmpty()) {
-                    content.append("=== Page ").append(pageNum).append(" ===\n");
                     content.append(pageText.trim()).append("\n\n");
                 }
             }
@@ -571,7 +794,7 @@ public class DocumentServiceImpl implements DocumentService {
             List<XWPFTable> tables = document.getTables();
             for (int tableIndex = 0; tableIndex < tables.size(); tableIndex++) {
                 XWPFTable table = tables.get(tableIndex);
-                content.append("\n=== Table ").append(tableIndex + 1).append(" ===\n");
+                content.append("\n");
 
                 List<XWPFTableRow> rows = table.getRows();
                 for (XWPFTableRow row : rows) {
@@ -666,21 +889,18 @@ public class DocumentServiceImpl implements DocumentService {
     private Map<String, Object> extractStructuredContent(String content) {
         Map<String, Object> structuredContent = new HashMap<>();
 
-        String[] pages = content.split("=== Page \\d+ ===");
         List<Map<String, Object>> pageContents = new ArrayList<>();
 
-        for (int i = 0; i < pages.length; i++) {
-            String pageContent = pages[i].trim();
-            if (!pageContent.isEmpty()) {
-                Map<String, Object> pageInfo = new HashMap<>();
-                pageInfo.put("pageNumber", i + 1);
-                pageInfo.put("content", pageContent);
+        // 现在不按页面分割，把整个内容作为一个页面
+        if (content != null && !content.trim().isEmpty()) {
+            Map<String, Object> pageInfo = new HashMap<>();
+            pageInfo.put("pageNumber", 1);
+            pageInfo.put("content", content.trim());
 
-                List<String> sections = extractSections(pageContent);
-                pageInfo.put("sections", sections);
+            List<String> sections = extractSections(content);
+            pageInfo.put("sections", sections);
 
-                pageContents.add(pageInfo);
-            }
+            pageContents.add(pageInfo);
         }
 
         structuredContent.put("pages", pageContents);
@@ -738,6 +958,7 @@ public class DocumentServiceImpl implements DocumentService {
             case "theory_paper" -> 0.9;
             case "maintenance_record" -> 0.8;
             case "user_feedback" -> 0.6;
+            case "mixed_collection" -> 0.0;
             default -> 0.5;
         };
     }
@@ -759,7 +980,13 @@ public class DocumentServiceImpl implements DocumentService {
                 deleted = true;
             }
 
-            File[] files = userDir.toFile().listFiles((dir, name) -> name.startsWith(docId) && !name.endsWith("_parsed.txt"));
+            Path metadataPath = userDir.resolve(docId + "_metadata.json");
+            if (Files.exists(metadataPath)) {
+                Files.delete(metadataPath);
+                log.info("Deleted metadata file: {}", metadataPath);
+            }
+
+            File[] files = userDir.toFile().listFiles((dir, name) -> name.startsWith(docId) && !name.endsWith("_parsed.txt") && !name.endsWith("_metadata.json"));
             if (files != null && files.length > 0) {
                 for (File file : files) {
                     if (file.delete()) {
@@ -780,7 +1007,12 @@ public class DocumentServiceImpl implements DocumentService {
                         log.info("Deleted anonymous parsed content: {}", parsedContentPath);
                         deleted = true;
                     }
-                    File[] anonFiles = anonDir.toFile().listFiles((dir, name) -> name.startsWith(docId) && !name.endsWith("_parsed.txt"));
+                    metadataPath = anonDir.resolve(docId + "_metadata.json");
+                    if (Files.exists(metadataPath)) {
+                        Files.delete(metadataPath);
+                        log.info("Deleted anonymous metadata file: {}", metadataPath);
+                    }
+                    File[] anonFiles = anonDir.toFile().listFiles((dir, name) -> name.startsWith(docId) && !name.endsWith("_parsed.txt") && !name.endsWith("_metadata.json"));
                     if (anonFiles != null) {
                         for (File file : anonFiles) {
                             if (file.delete()) {
@@ -790,6 +1022,27 @@ public class DocumentServiceImpl implements DocumentService {
                         }
                     }
                 }
+            }
+
+            try {
+                vectorStoreClient.deleteDocumentMetadata(docId);
+                log.info("Deleted vector store metadata for docId: {}", docId);
+            } catch (Exception e) {
+                log.error("Failed to delete vector store metadata for docId: {}, error: {}", docId, e.getMessage());
+            }
+
+            try {
+                ragServiceClient.deleteVectors(docId, effectiveUserId);
+                log.info("Deleted Chroma vectors for docId: {}", docId);
+            } catch (Exception e) {
+                log.error("Failed to delete Chroma vectors for docId: {}, error: {}", docId, e.getMessage());
+            }
+
+            try {
+                knowledgeGraphClient.deleteUserDocumentKnowledge(effectiveUserId, docId);
+                log.info("Deleted knowledge graph data for docId: {}", docId);
+            } catch (Exception e) {
+                log.error("Failed to delete knowledge graph data for docId: {}, error: {}", docId, e.getMessage());
             }
 
             return deleted;

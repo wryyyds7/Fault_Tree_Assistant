@@ -40,3 +40,13 @@ document:
     path: ${DOCUMENT_STORAGE_PATH:D:/bianchenglianxi/project/Fault_Tree_Assistant/fta-data/documents}
   ocr:
     tessdata: ./tessdata
+
+# 文档分类服务配置
+classification:
+  service:
+    url: ${CLASSIFICATION_SERVICE_URL:http://localhost:8003}
+
+# RAG服务配置（用于同步向量到Chroma）
+rag:
+  service:
+    url: ${RAG_SERVICE_URL:http://localhost:8000}
