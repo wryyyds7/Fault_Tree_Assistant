@@ -52,6 +52,16 @@ public class ClassificationClient {
 
     public ClassificationResult classifyDocument(String documentName, String content) {
         try {
+            log.info("========================================================");
+            log.info("★★☆ 开始调用分类服务 ☆★★");
+            log.info("文档名称: {}", documentName);
+            log.info("内容预览长度: {}", content != null ? content.length() : 0);
+            if (content != null) {
+                log.info("内容预览前100字符: {}", content.substring(0, Math.min(100, content.length())));
+            }
+            log.info("服务URL: {}", classificationServiceUrl);
+            log.info("========================================================");
+
             String url = classificationServiceUrl + "/api/v1/document/classify";
 
             HttpHeaders headers = new HttpHeaders();
@@ -60,8 +70,10 @@ public class ClassificationClient {
             Map<String, Object> requestBody = new HashMap<>();
             requestBody.put("documentName", documentName);
             requestBody.put("content", content);
-            requestBody.put("usePreMatching", true);
+            requestBody.put("usePreMatching", false);  // 直接使用LLM，不使用预匹配
             requestBody.put("contentPreviewLength", 800);
+
+            log.info("请求体: {}", requestBody);
 
             HttpEntity<Map<String, Object>> request = new HttpEntity<>(requestBody, headers);
 
@@ -72,16 +84,22 @@ public class ClassificationClient {
                     Map.class
             );
 
+            log.info("响应状态: {}", response.getStatusCode());
+
             if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
                 Map<String, Object> body = response.getBody();
+                log.info("响应体: {}", body);
+
                 ClassificationResult result = new ClassificationResult();
                 result.sourceType = (String) body.get("sourceType");
                 result.confidence = ((Number) body.get("confidence")).doubleValue();
                 result.reasoning = (String) body.get("reasoning");
                 result.method = (String) body.get("method");
                 result.credibilityWeight = ((Number) body.get("credibilityWeight")).doubleValue();
-                log.info("Document classified: sourceType={}, confidence={}, method={}",
+                log.info("★★☆ 分类成功 ☆★★");
+                log.info("sourceType={}, confidence={}, method={}",
                         result.sourceType, result.confidence, result.method);
+                log.info("========================================================");
                 return result;
             }
 
@@ -89,7 +107,9 @@ public class ClassificationClient {
             return createDefaultResult();
 
         } catch (Exception e) {
+            log.error("★★☆ 分类失败 ☆★★", e);
             log.error("Failed to call classification service: {}", e.getMessage());
+            log.info("========================================================");
             return createDefaultResult();
         }
     }

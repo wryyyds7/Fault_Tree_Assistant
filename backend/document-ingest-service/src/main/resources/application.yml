@@ -44,7 +44,7 @@ document:
 # 文档分类服务配置
 classification:
   service:
-    url: ${CLASSIFICATION_SERVICE_URL:http://localhost:8003}
+    url: ${CLASSIFICATION_SERVICE_URL:http://localhost:8002}
 
 # RAG服务配置（用于同步向量到Chroma）
 rag:

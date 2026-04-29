@@ -107,34 +107,46 @@ public class DocumentServiceImpl implements DocumentService {
             String actualEquipmentType = (equipmentType != null && !equipmentType.isEmpty()) ? equipmentType : null;
             Boolean actualPersistToKnowledgeBase = persistToKnowledgeBase != null ? persistToKnowledgeBase : true;
 
+            log.info("★★☆ sourceType参数值: {}", sourceType);
+            log.info("是否需要自动分类: {}", (sourceType == null || sourceType.isEmpty() || "auto".equalsIgnoreCase(sourceType) || "unknown".equalsIgnoreCase(sourceType)));
+            
             if (sourceType == null || sourceType.isEmpty() || "auto".equalsIgnoreCase(sourceType) || "unknown".equalsIgnoreCase(sourceType)) {
-                log.info("Source type not specified, performing automatic classification for: {}", file.getOriginalFilename());
+                log.info("★★☆ 开始自动分类流程 ☆★★");
+                log.info("文档名称: {}", file.getOriginalFilename());
                 try {
+                    log.info("正在提取内容预览...");
                     String contentPreview = extractContentPreview(filePath.toFile(), getFileExtension(file.getOriginalFilename()));
+                    log.info("内容预览提取完成: length={}", contentPreview != null ? contentPreview.length() : 0);
+                    
                     if (contentPreview != null && contentPreview.length() > 50) {
+                        log.info("内容预览长度>50，调用分类服务...");
                         ClassificationClient.ClassificationResult classificationResult =
                                 classificationClient.classifyDocument(file.getOriginalFilename(), contentPreview);
+                        log.info("分类服务返回结果: {}", classificationResult != null ? "有结果" : "无结果");
+                        
                         if (classificationResult != null) {
                             actualSourceType = classificationResult.getSourceType();
                             result.put("classificationConfidence", classificationResult.getConfidence());
                             result.put("classificationReasoning", classificationResult.getReasoning());
                             result.put("classificationMethod", classificationResult.getMethod());
                             result.put("classificationCredibilityWeight", classificationResult.getCredibilityWeight());
-                            log.info("Document auto-classified: sourceType={}, confidence={}, method={}",
+                            log.info("★★☆ 自动分类完成 ☆★★");
+                            log.info("sourceType={}, confidence={}, method={}",
                                     actualSourceType, classificationResult.getConfidence(), classificationResult.getMethod());
                         } else {
+                            log.warn("classificationResult返回null，使用默认类型");
                             actualSourceType = "unknown";
                         }
                     } else {
+                        log.warn("内容预览太短(length={})，无法分类", contentPreview != null ? contentPreview.length() : 0);
                         actualSourceType = "unknown";
-                        log.warn("Content preview too short for classification");
                     }
                 } catch (Exception e) {
-                    log.error("Failed to classify document: {}", e.getMessage());
+                    log.error("★★☆ 自动分类失败 ☆★★", e);
                     actualSourceType = "unknown";
                 }
             } else {
-                log.info("Using user-provided source type: {}", sourceType);
+                log.info("使用用户指定的sourceType: {}", sourceType);
             }
 
             if (actualSourceType == null || actualSourceType.isEmpty()) {
@@ -356,19 +368,8 @@ public class DocumentServiceImpl implements DocumentService {
             Map<String, Object> structuredContent = extractStructuredContent(content);
 
             try {
-                List<Map<String, Object>> paragraphs = new ArrayList<>();
-                if (content != null && !content.trim().isEmpty()) {
-                    Map<String, Object> paragraph = new HashMap<>();
-                    paragraph.put("sectionTitle", "");
-                    paragraph.put("pageNumber", 1);
-                    paragraph.put("content", content);
-                    paragraph.put("keywords", "");
-                    paragraph.put("confidenceScore", 0.9);
-                    paragraph.put("sourceType", sourceType);
-                    paragraph.put("credibilityWeight", getCredibilityWeightBySourceType(sourceType));
-                    paragraphs.add(paragraph);
-                }
-                log.info("[Step 6] 生成段落数: {}, 发送完整内容由Python语义分块", paragraphs.size());
+                List<Map<String, Object>> paragraphs = splitContentIntoParagraphs(content, sourceType);
+                log.info("[Step 6] 生成段落数: {}, 发送至Python进行语义分块与向量存储", paragraphs.size());
 
                 Map<String, Object> syncRequest = new HashMap<>();
                 syncRequest.put("docId", docId);
@@ -946,6 +947,76 @@ public class DocumentServiceImpl implements DocumentService {
                 .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
                 .limit(10)
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+    }
+
+    private List<Map<String, Object>> splitContentIntoParagraphs(String content, String sourceType) {
+        List<Map<String, Object>> paragraphs = new ArrayList<>();
+        if (content == null || content.trim().isEmpty()) {
+            return paragraphs;
+        }
+
+        int maxParagraphChars = 2000;
+        String[] lines = content.split("\n");
+        StringBuilder currentParagraph = new StringBuilder();
+        int currentPage = 1;
+        int paraNumber = 0;
+
+        for (String line : lines) {
+            String trimmedLine = line.trim();
+
+            if (trimmedLine.isEmpty()) {
+                if (currentParagraph.length() > 0) {
+                    paragraphs.add(buildParagraph(currentPage, paraNumber++, currentParagraph.toString().trim(), sourceType));
+                    currentParagraph = new StringBuilder();
+                }
+                continue;
+            }
+
+            if (isSectionHeader(trimmedLine) && currentParagraph.length() > 0) {
+                paragraphs.add(buildParagraph(currentPage, paraNumber++, currentParagraph.toString().trim(), sourceType));
+                currentParagraph = new StringBuilder();
+            }
+
+            if (currentParagraph.length() + trimmedLine.length() + 1 > maxParagraphChars && currentParagraph.length() > 0) {
+                paragraphs.add(buildParagraph(currentPage, paraNumber++, currentParagraph.toString().trim(), sourceType));
+                currentParagraph = new StringBuilder();
+            }
+
+            if (currentParagraph.length() > 0) {
+                currentParagraph.append("\n");
+            }
+            currentParagraph.append(trimmedLine);
+        }
+
+        if (currentParagraph.length() > 0) {
+            paragraphs.add(buildParagraph(currentPage, paraNumber, currentParagraph.toString().trim(), sourceType));
+        }
+
+        return paragraphs;
+    }
+
+    private Map<String, Object> buildParagraph(int pageNumber, int paraNumber, String content, String sourceType) {
+        Map<String, Object> paragraph = new HashMap<>();
+        paragraph.put("sectionTitle", "");
+        paragraph.put("pageNumber", pageNumber);
+        paragraph.put("paragraphNumber", paraNumber);
+        paragraph.put("content", content);
+        paragraph.put("keywords", "");
+        paragraph.put("confidenceScore", 0.9);
+        paragraph.put("sourceType", sourceType);
+        paragraph.put("credibilityWeight", getCredibilityWeightBySourceType(sourceType));
+        return paragraph;
+    }
+
+    private boolean isSectionHeader(String line) {
+        if (line.length() > 80) {
+            return false;
+        }
+        return line.matches("^\\d+[\\.．]\\s+.*") ||
+               line.matches("^\\d+[\\.．]\\d+\\s+.*") ||
+               line.matches("^[第][一二三四五六七八九十百千]+[章节篇].*") ||
+               line.matches("^[（(]\\s*\\d+\\s*[)）].*") ||
+               line.toLowerCase().matches("^(chapter|section|part)\\s+\\d+.*");
     }
 
     private double getCredibilityWeightBySourceType(String sourceType) {
